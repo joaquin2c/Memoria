@@ -264,6 +264,270 @@ class QueryAwareDataset:
         return copy.deepcopy(self.support_dataset.data_infos)
 
 
+
+@DATASETS.register_module()
+class DrawQueryAwareDataset:
+    """A wrapper of QueryAwareDataset.
+
+    Building QueryAwareDataset requires query and support dataset.
+    Every call of `__getitem__` will firstly sample a query image and its
+    annotations. Then it will use the query annotations to sample a batch
+    of positive and negative support images and annotations. The positive
+    images share same classes with query, while the annotations of negative
+    images don't have any category from query.
+
+    Args:
+        query_dataset (:obj:`BaseFewShotDataset`):
+            Query dataset to be wrapped.
+        support_dataset (:obj:`BaseFewShotDataset` | None):
+            Support dataset to be wrapped. If support dataset is None,
+            support dataset will copy from query dataset.
+        num_support_ways (int): Number of classes for support in
+            mini-batch, the first one always be the positive class.
+        num_support_shots (int): Number of support shots for each
+            class in mini-batch, the first K shots always from positive class.
+        repeat_times (int): The length of repeated dataset will be `times`
+            larger than the original dataset. Default: 1.
+    """
+
+    def __init__(self,
+                 query_dataset: BaseFewShotDataset,
+                 support_dataset: Optional[BaseFewShotDataset],
+                 num_support_ways: int,
+                 num_support_shots: int,
+                 repeat_times: int = 1) -> None:
+        self.query_dataset = query_dataset
+        if support_dataset is None:
+            self.support_dataset = self.query_dataset
+        else:
+            self.support_dataset = support_dataset
+        self.num_support_ways = num_support_ways
+        self.num_support_shots = num_support_shots
+        self.CLASSES = self.query_dataset.CLASSES
+        self.repeat_times = repeat_times
+        assert self.num_support_ways <= len(
+            self.CLASSES
+        ), 'Please set `num_support_ways` smaller than the number of classes.'
+        # build data index (idx, gt_idx) by class.
+        self.data_infos_by_class = {i: [] for i in range(len(self.CLASSES))}
+        # counting max number of annotations in one image for each class,
+        # which will decide whether sample repeated instance or not.
+        self.max_anns_num_one_image = [0 for _ in range(len(self.CLASSES))]
+        # count image for each class annotation when novel class only
+        # has one image, the positive support is allowed sampled from itself.
+        self.num_image_by_class = [0 for _ in range(len(self.CLASSES))]
+
+        for idx in range(len(self.support_dataset.support_data_infos)):
+            labels = self.support_dataset.support_data_infos[idx]['ann']['labels']
+            class_count = [0 for _ in range(len(self.CLASSES))]
+            for gt_idx, gt in enumerate(labels):
+                self.data_infos_by_class[gt].append((idx, gt_idx))
+                class_count[gt] += 1
+            for i in range(len(self.CLASSES)):
+                # number of images for each class
+                if class_count[i] > 0:
+                    self.num_image_by_class[i] += 1
+                # max number of one class annotations in one image
+                if class_count[i] > self.max_anns_num_one_image[i]:
+                    self.max_anns_num_one_image[i] = class_count[i]
+
+        for i in range(len(self.CLASSES)):
+            assert len(self.data_infos_by_class[i]
+                       ) > 0, f'Class {self.CLASSES[i]} has zero annotation for support'
+            if len(
+                    self.data_infos_by_class[i]
+            ) <= self.num_support_shots - self.max_anns_num_one_image[i]:
+                warnings.warn(
+                    f'During training, instances of class {self.CLASSES[i]} '
+                    f'may smaller than the number of support shots which '
+                    f'causes some instance will be sampled multiple times')
+            if self.num_image_by_class[i] == 1:
+                warnings.warn(f'Class {self.CLASSES[i]} only have one '
+                              f'image, query and support will sample '
+                              f'from instance of same image')
+
+        # Disable the group sampler, because in few shot setting,
+        # one group may only has two or three images.
+        if hasattr(self.query_dataset, 'flag'):
+            self.flag = np.zeros(
+                len(self.query_dataset) * self.repeat_times, dtype=np.uint8)
+
+        self._ori_len = len(self.query_dataset)
+        self._supp_len=len(self.support_dataset.support_data_infos)
+
+    def __getitem__(self, idx: int) -> Dict:
+        """Return query image and support images at the same time.
+
+        For query aware dataset, this function would return one query image
+        and num_support_ways * num_support_shots support images. The support
+        images are sampled according to the selected query image. There should
+        be no intersection between the classes of instances in query data and
+        in support data.
+
+        Args:
+            idx (int): the index of data.
+
+        Returns:
+            dict: A dict contains query data and support data, it
+            usually contains two fields.
+
+                - query_data: A dict of single query data information.
+                - support_data: A list of dict, has
+                  num_support_ways * num_support_shots support images
+                  and corresponding annotations.
+        """
+        idx %= self._ori_len
+        # sample query data
+        try_time = 0
+        while True:
+            try_time += 1
+            cat_ids = self.query_dataset.get_cat_ids(idx)
+            # query image have too many classes, can not find enough
+            # negative support classes.
+            if len(self.CLASSES) - len(cat_ids) >= self.num_support_ways - 1:
+                break
+            else:
+                idx = self._rand_another(idx) % self._ori_len
+            assert try_time < 100, \
+                'Not enough negative support classes for ' \
+                'query image, please try a smaller support way.'
+
+        query_class = np.random.choice(cat_ids)
+
+        query_gt_idx = [
+            i for i in range(len(cat_ids)) if cat_ids[i] == query_class
+        ]
+        query_data = self.query_dataset.prepare_train_img(
+            idx, 'query', query_gt_idx)
+        query_data['query_class'] = [query_class]
+
+        # sample negative support classes, which not appear in query image
+        support_class = [
+            i for i in range(len(self.CLASSES)) if i not in cat_ids
+        ]
+        support_class = np.random.choice(
+            support_class,
+            min(self.num_support_ways - 1, len(support_class)),
+            replace=False)
+
+        support_idxes = self.generate_support(idx, query_class, support_class)
+        support_data = [
+            self.support_dataset.prepare_train_img(idx, 'support', [gt_idx])
+            for (idx, gt_idx) in support_idxes
+        ]
+
+        return {'query_data': query_data, 'support_data': support_data}
+
+    def __len__(self) -> int:
+        """Length after repetition."""
+        return len(self.query_dataset) * self.repeat_times
+
+    def _rand_another(self, idx: int) -> int:
+        """Get another random index from the same group as the given index."""
+        pool = np.where(self.flag == self.flag[idx])[0]
+        return np.random.choice(pool)
+
+    def generate_support(self, idx: int, query_class: int,
+                         support_classes: List[int]) -> List[Tuple[int]]:
+        """Generate support indices of query images.
+
+        Args:
+            idx (int): Index of query data.
+            query_class (int): Query class.
+            support_classes (list[int]): Classes of support data.
+
+        Returns:
+            list[tuple(int)]: A mini-batch (num_support_ways *
+                num_support_shots) of support data (idx, gt_idx).
+        """
+        support_idxes = []
+        if self.num_image_by_class[query_class] == 1:
+            # only have one image, instance will sample from same image
+            pos_support_idxes = self.sample_support_shots(
+                idx, query_class, allow_same_image=True)
+        else:
+            # instance will sample from different image from query image
+            pos_support_idxes = self.sample_support_shots(idx, query_class)
+        support_idxes.extend(pos_support_idxes)
+        for support_class in support_classes:
+            neg_support_idxes = self.sample_support_shots(idx, support_class)
+            support_idxes.extend(neg_support_idxes)
+        return support_idxes
+
+    def sample_support_shots(
+            self,
+            idx: int,
+            class_id: int,
+            allow_same_image: bool = False) -> List[Tuple[int]]:
+        """Generate support indices according to the class id.
+
+        Args:
+            idx (int): Index of query data.
+            class_id (int): Support class.
+            allow_same_image (bool): Allow instance sampled from same image
+                as query image. Default: False.
+        Returns:
+            list[tuple[int]]: Support data (num_support_shots)
+                of specific class.
+        """
+        support_idxes = []
+        num_total_shots = len(self.data_infos_by_class[class_id])
+
+        # count number of support instance in query image
+        cat_ids = self.support_dataset.get_supp_id(idx % self._supp_len)
+        num_ignore_shots = len([1 for cat_id in cat_ids if cat_id == class_id])
+
+        # set num_sample_shots for each time of sampling
+        if num_total_shots - num_ignore_shots < self.num_support_shots:
+            # if not have enough support data allow repeated data
+            num_sample_shots = num_total_shots
+            allow_repeat = True
+        else:
+            # if have enough support data not allow repeated data
+            num_sample_shots = self.num_support_shots
+            allow_repeat = False
+        while len(support_idxes) < self.num_support_shots:
+            selected_gt_idxes = np.random.choice(
+                num_total_shots, num_sample_shots, replace=False)
+
+            selected_gts = [
+                self.data_infos_by_class[class_id][selected_gt_idx]
+                for selected_gt_idx in selected_gt_idxes
+            ]
+            for selected_gt in selected_gts:
+                # filter out query annotations
+                if selected_gt[0] == idx:
+                    if not allow_same_image:
+                        continue
+                if allow_repeat:
+                    support_idxes.append(selected_gt)
+                elif selected_gt not in support_idxes:
+                    support_idxes.append(selected_gt)
+                if len(support_idxes) == self.num_support_shots:
+                    break
+            # update the number of data for next time sample
+            num_sample_shots = min(self.num_support_shots - len(support_idxes),
+                                   num_sample_shots)
+        return support_idxes
+
+    def save_data_infos(self, output_path: str) -> None:
+        """Save data_infos into json."""
+        self.query_dataset.save_data_infos(output_path)
+        # for query aware datasets support and query set use same data
+        paths = output_path.split('.')
+        self.support_dataset.save_supp_data_infos(
+            '.'.join(paths[:-1] + ['support_shot', paths[-1]]))
+
+    def get_support_data_infos(self) -> List[Dict]:
+        """Return data_infos of support dataset."""
+        return copy.deepcopy(self.support_dataset.support_data_infos)
+
+
+
+
+
+
+
 @DATASETS.register_module()
 class NWayKShotDataset:
     """A dataset wrapper of NWayKShotDataset.
