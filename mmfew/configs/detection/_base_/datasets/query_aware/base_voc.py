@@ -43,7 +43,7 @@ test_pipeline = [
         ])
 ]
 # classes splits are predefined in FewShotVOCDataset
-data_root = 'data/VOCdevkit/'
+data_root = '../../../Data/VOC/VOCdevkit/'
 data = dict(
     samples_per_gpu=2,
     workers_per_gpu=2,

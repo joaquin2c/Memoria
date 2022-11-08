@@ -256,12 +256,12 @@ class FewShotVOCDataset(BaseFewShotDataset):
             elif 'VOC2007' in ann_file:
                 dataset_year = 'VOC2007'
                 img_id = img_name
-                filename = f'VOC2007/JPEGImages/{img_name}.jpg'
+                filename = f'VOC/VOCdevkit/VOC2007/JPEGImages/{img_name}.jpg'
             # ann file in image id format
             elif 'VOC2012' in ann_file:
                 dataset_year = 'VOC2012'
                 img_id = img_name
-                filename = f'VOC2012/JPEGImages/{img_name}.jpg'
+                filename = f'VOC/VOCdevkit/VOC2012/JPEGImages/{img_name}.jpg'
             else:
                 raise ValueError('Cannot infer dataset year from img_prefix')
 

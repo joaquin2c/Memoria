@@ -43,17 +43,17 @@ def build_dataset(cfg: ConfigDict,
         dataset = ClassBalancedDataset(
             build_dataset(cfg['dataset'], default_args), cfg['oversample_thr'])
     elif cfg['type'] == 'QueryAwareDataset':
-        query_dataset = build_dataset(cfg['dataset'], default_args)
+        query_dataset = build_dataset(cfg['query_dataset'], default_args)
         # build support dataset
         if cfg.get('support_dataset', None) is not None:
             # if `copy_from_query_dataset` is True, copy and update config
             # from query_dataset and copy `data_infos` by using copy dataset
             # to avoid reproducing random sampling.
             if cfg['support_dataset'].pop('copy_from_query_dataset', False):
-                support_dataset_cfg = copy.deepcopy(cfg['dataset'])
+                support_dataset_cfg = copy.deepcopy(cfg['query_dataset'])
                 support_dataset_cfg.update(cfg['support_dataset'])
                 support_dataset_cfg['type'] = get_copy_dataset_type(
-                    cfg['dataset']['type'])
+                    cfg['query_dataset']['type'])
                 support_dataset_cfg['ann_cfg'] = [
                     dict(data_infos=copy.deepcopy(query_dataset.data_infos))
                 ]

@@ -43,24 +43,35 @@ test_pipeline = [
         ])
 ]
 # classes splits are predefined in FewShotVOCDataset
-data_root = '../../../Data'
+data_root = '../../../Data/'
 data = dict(
     samples_per_gpu=2,
     workers_per_gpu=2,
     train=dict(
-        type='DrawQueryAwareDataset',
+        type='QueryAwareDataset',
         num_support_ways=2,
         num_support_shots=10,
         save_dataset=False,
-        dataset=dict(
-            type='DrawFewShotVOCDataset',
+        query_dataset=dict(
+            type='FewShotVOCDataset',
             ann_cfg=[
                 dict(
                     type='ann_file',
                     ann_file=data_root+'VOC/VOCdevkit/VOC2007/ImageSets/Main/trainval.txt'),
                 dict(
                     type='ann_file',
-                    ann_file=data_root+'VOC/VOCdevkit/VOC2012/ImageSets/Main/trainval.txt'),
+                    ann_file=data_root+'VOC/VOCdevkit/VOC2012/ImageSets/Main/trainval.txt')
+            ],
+            img_prefix=data_root,
+            multi_pipelines=train_multi_pipelines['query'],
+            classes=None,
+            use_difficult=False,
+            instance_wise=False,
+            min_bbox_area=32 * 32,
+            dataset_name='query_dataset'),
+        support_dataset=dict(
+            type='DrawSuppFewShotVOCDataset',
+            ann_cfg=[
                 dict(
                      type='ann_file',
                      ann_file=data_root+'Draw/aeroplane/trainval.txt'),
@@ -96,32 +107,33 @@ data = dict(
                      ann_file=data_root+'Draw/train/trainval.txt'),
                 dict(
                      type='ann_file',
-                     ann_file=data_root+'Draw/tvmonitor/trainval.txt'),
+                     ann_file=data_root+'Draw/tvmonitor/trainval.txt')
             ],
             img_prefix=data_root,
-            multi_pipelines=train_multi_pipelines,
+            multi_pipelines=train_multi_pipelines['support'],
             classes=None,
             use_difficult=False,
             instance_wise=False,
             min_bbox_area=32 * 32,
-            dataset_name='query_support_dataset')),
+            dataset_name='support_dataset')),
+
     val=dict(
-        type='DrawFewShotVOCDataset',
+        type='FewShotVOCDataset',
         ann_cfg=[
             dict(
                 type='ann_file',
-                ann_file=data_root + 'VOC2007/ImageSets/Main/test.txt')
+                ann_file=data_root + 'VOC/VOCdevkit/VOC2007/ImageSets/Main/test.txt')
         ],
         img_prefix=data_root,
         pipeline=test_pipeline,
         classes=None,
     ),
     test=dict(
-        type='DrawFewShotVOCDataset',
+        type='FewShotVOCDataset',
         ann_cfg=[
             dict(
                 type='ann_file',
-                ann_file=data_root + 'VOC2007/ImageSets/Main/test.txt')
+                ann_file=data_root + 'VOC/VOCdevkit/VOC2007/ImageSets/Main/test.txt')
         ],
         img_prefix=data_root,
         pipeline=test_pipeline,

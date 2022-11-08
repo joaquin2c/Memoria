@@ -6,12 +6,13 @@ _base_ = [
 # classes splits are predefined in FewShotVOCDataset
 # FewShotVOCDefaultDataset predefine ann_cfg for model reproducibility.
 num_support_ways = 2
-num_support_shots = 10
+num_support_shots = 1
 data = dict(
     train=dict(
         num_support_ways=num_support_ways,
         num_support_shots=num_support_shots,
-        dataset=dict(classes='BASE_CLASSES_SPLIT1')),
+        query_dataset=dict(classes='BASE_CLASSES_SPLIT1'),
+        support_dataset=dict(classes='BASE_CLASSES_SPLIT1')),
     val=dict(classes='BASE_CLASSES_SPLIT1'),
     test=dict(classes='BASE_CLASSES_SPLIT1'),
     model_init=dict(classes='BASE_CLASSES_SPLIT1'))
