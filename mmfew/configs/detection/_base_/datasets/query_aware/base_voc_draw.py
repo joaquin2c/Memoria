@@ -64,7 +64,7 @@ data = dict(
                     ann_file=data_root_query+'VOC2012/ImageSets/Main/trainval.txt')
             ],
             img_prefix=data_root_query,
-            pipeline=train_multi_pipelines['query'],
+            multi_pipelines=train_multi_pipelines,
             classes=None,
             use_difficult=False,
             instance_wise=False,
@@ -111,7 +111,7 @@ data = dict(
                      ann_file=data_root+'Draw/tvmonitor/trainval.txt')
             ],
             img_prefix=data_root,
-            pipeline=train_multi_pipelines['support'],
+            multi_pipelines=train_multi_pipelines,
             classes=None,
             use_difficult=False,
             instance_wise=False,
