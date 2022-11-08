@@ -44,6 +44,7 @@ test_pipeline = [
 ]
 # classes splits are predefined in FewShotVOCDataset
 data_root = '../../../Data/'
+data_root_query= '../../../Data/VOC/VOCdevkit/'
 data = dict(
     samples_per_gpu=2,
     workers_per_gpu=2,
@@ -57,13 +58,13 @@ data = dict(
             ann_cfg=[
                 dict(
                     type='ann_file',
-                    ann_file=data_root+'VOC/VOCdevkit/VOC2007/ImageSets/Main/trainval.txt'),
+                    ann_file=data_root_query+'VOC2007/ImageSets/Main/trainval.txt'),
                 dict(
                     type='ann_file',
-                    ann_file=data_root+'VOC/VOCdevkit/VOC2012/ImageSets/Main/trainval.txt')
+                    ann_file=data_root_query+'VOC2012/ImageSets/Main/trainval.txt')
             ],
-            img_prefix=data_root,
-            multi_pipelines=train_multi_pipelines['query'],
+            img_prefix=data_root_query,
+            pipeline=train_multi_pipelines['query'],
             classes=None,
             use_difficult=False,
             instance_wise=False,
@@ -110,7 +111,7 @@ data = dict(
                      ann_file=data_root+'Draw/tvmonitor/trainval.txt')
             ],
             img_prefix=data_root,
-            multi_pipelines=train_multi_pipelines['support'],
+            pipeline=train_multi_pipelines['support'],
             classes=None,
             use_difficult=False,
             instance_wise=False,
@@ -122,9 +123,9 @@ data = dict(
         ann_cfg=[
             dict(
                 type='ann_file',
-                ann_file=data_root + 'VOC/VOCdevkit/VOC2007/ImageSets/Main/test.txt')
+                ann_file=data_root_query + 'VOC2007/ImageSets/Main/test.txt')
         ],
-        img_prefix=data_root,
+        img_prefix=data_root_query,
         pipeline=test_pipeline,
         classes=None,
     ),
@@ -133,9 +134,9 @@ data = dict(
         ann_cfg=[
             dict(
                 type='ann_file',
-                ann_file=data_root + 'VOC/VOCdevkit/VOC2007/ImageSets/Main/test.txt')
+                ann_file=data_root_query + 'VOC2007/ImageSets/Main/test.txt')
         ],
-        img_prefix=data_root,
+        img_prefix=data_root_query,
         pipeline=test_pipeline,
         test_mode=True,
         classes=None,
