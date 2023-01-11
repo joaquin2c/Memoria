@@ -21,7 +21,7 @@ optimizer = dict(
     momentum=0.9,
     paramwise_cfg=dict(custom_keys={'roi_head.bbox_head': dict(lr_mult=2.0)}))
 lr_config = dict(warmup_iters=500, warmup_ratio=0.1, step=[16000])
-runner = dict(max_iters=36000)
+runner = dict(max_iters=42000)
 evaluation = dict(interval=6000)
 checkpoint_config = dict(interval=6000)
 

@@ -1,5 +1,5 @@
 _base_ = [
-    '../../../_base_/datasets/query_aware/base_voc_draw.py',
+    '../../../_base_/datasets/query_aware/base_voc_draw_Split2.py',
     '../../../_base_/schedules/schedule.py', '../../attention-rpn_r50_c4.py',
     '../../../_base_/default_runtime.py'
 ]
@@ -11,17 +11,17 @@ data = dict(
     train=dict(
         num_support_ways=num_support_ways,
         num_support_shots=num_support_shots,
-        query_dataset=dict(classes='BASE_CLASSES_SPLIT1'),
-        support_dataset=dict(classes='BASE_CLASSES_SPLIT1')),
-    val=dict(classes='BASE_CLASSES_SPLIT1'),
-    test=dict(classes='BASE_CLASSES_SPLIT1'),
-    model_init=dict(classes='BASE_CLASSES_SPLIT1'))
+        query_dataset=dict(classes='BASE_CLASSES_SPLIT2'),
+        support_dataset=dict(classes='BASE_CLASSES_SPLIT2')),
+    val=dict(classes='BASE_CLASSES_SPLIT2'),
+    test=dict(classes='BASE_CLASSES_SPLIT2'),
+    model_init=dict(classes='BASE_CLASSES_SPLIT2'))
 optimizer = dict(
     lr=0.004,
     momentum=0.9,
     paramwise_cfg=dict(custom_keys={'roi_head.bbox_head': dict(lr_mult=2.0)}))
 lr_config = dict(warmup_iters=500, warmup_ratio=0.1, step=[16000])
-runner = dict(max_iters=36000)
+runner = dict(max_iters=48000)
 evaluation = dict(interval=6000)
 checkpoint_config = dict(interval=6000)
 

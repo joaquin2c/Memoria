@@ -1,5 +1,5 @@
 _base_ = [
-    '../../../_base_/datasets/query_aware/base_voc_draw.py',
+    '../../../_base_/datasets/query_aware/base_voc_draw_mod3.py',
     '../../../_base_/schedules/schedule.py', '../../attention-rpn_r50_c4.py',
     '../../../_base_/default_runtime.py'
 ]
