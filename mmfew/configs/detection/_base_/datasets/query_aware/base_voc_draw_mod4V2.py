@@ -19,12 +19,8 @@ train_multi_pipelines = dict(
     support=[
         dict(type='LoadImageFromFile'),
         dict(type='LoadAnnotations', with_bbox=True),
-        dict(
-            type='CropResizeInstance',
-            num_context_pixels=16,
-            target_size=(320, 320)),
         dict(type='RandomFlip', flip_ratio=0.0),
-        dict(type='Normalize', **img_norm_cfg),
+	dict(type='Normalize', **img_norm_cfg),
         dict(type='DefaultFormatBundle'),
         dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels'])
     ])
@@ -46,7 +42,7 @@ test_pipeline = [
 data_root = '../../../Data/'
 data_root_query= '../../../Data/VOC/VOCdevkit/'
 data = dict(
-    samples_per_gpu=2,
+    samples_per_gpu=6,
     workers_per_gpu=2,
     train=dict(
         type='QueryAwareDataset',
