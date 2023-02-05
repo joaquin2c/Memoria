@@ -22,7 +22,7 @@ def parse_args():
     parser.add_argument('image', help='Image file')
     parser.add_argument('checkpoint', help='Checkpoint file')
     parser.add_argument(
-        '--device', default='cuda:0', help='Device used for inference')
+        '--device', default='cpu', help='Device used for inference')
     parser.add_argument(
         '--score-thr', type=float, default=0.3, help='bbox score threshold')
     parser.add_argument(
@@ -36,7 +36,7 @@ def parse_args():
 
 
 def main(args):
-    checkpoint="work_dirs/"+args.checkpoint+"/latest.pth"
+    checkpoint="../../../workdirs/"+args.checkpoint+"_latest.pth"
     config="configs/detection/attention_rpn/voc/split1/"+args.checkpoint+".py"
     # build the model from a config file and a checkpoint file
     model = init_detector(config, checkpoint, device=args.device)
