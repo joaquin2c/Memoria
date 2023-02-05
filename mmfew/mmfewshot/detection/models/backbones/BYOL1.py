@@ -1,7 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from typing import Tuple
 
-from BYOL.models import BYOL
+from BYOL.models import *
 from mmdet.models.builder import BACKBONES
 from torch import Tensor
 
