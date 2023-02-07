@@ -1,1 +1,0 @@
-# bimodal-byol-shoes

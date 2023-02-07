@@ -1,6 +1,8 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 import copy
 import math
 import random
+from mmcv.runner import BaseModule
 from functools import wraps
 
 import torch
@@ -171,8 +173,8 @@ class NetWrapper(nn.Module):
         return projection, representation
 
 # main class
-
-class BYOL(nn.Module):
+@BACKBONES.register_module()
+class BYOL2(BaseModule):
     def __init__(
         self,
         net,
@@ -251,26 +253,21 @@ class BYOL(nn.Module):
         return_projection = True
     ):
 
-        if return_embedding:
+        if return_embedding == 'online':
             return self.online_encoder(x, return_projection = return_projection)
+        elif return_embedding == 'target':
+            target_encoder = self._get_target_encoder() if self.use_momentum else self.online_encoder
+            return target_encoder(x, return_projection = return_projection)
 
         image_one, image_two = self.augment1(x), self.augment2(x)
 
         online_proj_one, _ = self.online_encoder(image_one)
-        online_proj_two, _ = self.online_encoder(image_two)
-
         online_pred_one = self.online_predictor(online_proj_one)
-        online_pred_two = self.online_predictor(online_proj_two)
 
         with torch.no_grad():
             target_encoder = self._get_target_encoder() if self.use_momentum else self.online_encoder
-            target_proj_one, _ = target_encoder(image_one)
             target_proj_two, _ = target_encoder(image_two)
-            target_proj_one.detach_()
             target_proj_two.detach_()
 
-        loss_one = loss_fn(online_pred_one, target_proj_two.detach())
-        loss_two = loss_fn(online_pred_two, target_proj_one.detach())
-
-        loss = loss_one + loss_two
+        loss = loss_fn(online_pred_one, target_proj_two.detach())
         return loss.mean()
