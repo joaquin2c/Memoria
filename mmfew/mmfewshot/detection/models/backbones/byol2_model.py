@@ -2,6 +2,8 @@
 import copy
 import math
 import random
+
+from mmdet.models.builder import BACKBONES
 from mmcv.runner import BaseModule
 from functools import wraps
 

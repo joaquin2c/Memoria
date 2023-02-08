@@ -1,9 +1,11 @@
 import copy
 import math
 import random
+
+from mmdet.models.builder import BACKBONES
 from mmcv.runner import BaseModule
 from functools import wraps
-
+import torchvision.models as models
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -176,7 +178,7 @@ class NetWrapper(nn.Module):
 class BYOL(BaseModule):
     def __init__(
         self,
-        net,
+        net=models.resnet50(pretrained=False),
         image_size,
         hidden_layer = -2,
         projection_size = 256,
