@@ -187,7 +187,9 @@ class BYOL(BaseModule):
         augment_fn2 = None,
         moving_average_decay = 0.99,
         use_momentum = True,
-        cosine_ema_steps = None
+        cosine_ema_steps = None,
+        return_embedding = False,
+        return_projection = True
     ):
         super().__init__()
         self.net = models.resnet50(pretrained=False)
@@ -250,8 +252,8 @@ class BYOL(BaseModule):
     def forward(
         self,
         x,
-        return_embedding = False,
-        return_projection = True
+        return_embedding = return_embedding,
+        return_projection = return_projection
     ):
 
         if return_embedding:
