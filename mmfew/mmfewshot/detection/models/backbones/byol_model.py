@@ -193,6 +193,8 @@ class BYOL(BaseModule):
     ):
         super().__init__()
         self.net = models.resnet50(pretrained=False)
+        self.return_embedding = return_embedding ,
+        self.return_projection = return_projection
 
         # default SimCLR augmentation
 
@@ -252,8 +254,8 @@ class BYOL(BaseModule):
     def forward(
         self,
         x,
-        return_embedding = return_embedding,
-        return_projection = return_projection
+        return_embedding = self.return_embedding,
+        return_projection = self.return_projection
     ):
 
         if return_embedding:
