@@ -178,8 +178,8 @@ class NetWrapper(nn.Module):
 class BYOL(BaseModule):
     def __init__(
         self,
-        net=models.resnet50(pretrained=False),
         image_size,
+        pretrainde=None,
         hidden_layer = -2,
         projection_size = 256,
         projection_hidden_size = 4096,
@@ -190,7 +190,7 @@ class BYOL(BaseModule):
         cosine_ema_steps = None
     ):
         super().__init__()
-        self.net = net
+        self.net = models.resnet50(pretrained=p),
 
         # default SimCLR augmentation
 
@@ -214,7 +214,7 @@ class BYOL(BaseModule):
         self.augment1 = default(augment_fn, DEFAULT_AUG)
         self.augment2 = default(augment_fn2, self.augment1)
 
-        self.online_encoder = NetWrapper(net, projection_size, projection_hidden_size, layer=hidden_layer)
+        self.online_encoder = NetWrapper(self.net, projection_size, projection_hidden_size, layer=hidden_layer)
 
         self.use_momentum = use_momentum
         self.target_encoder = None
@@ -226,7 +226,7 @@ class BYOL(BaseModule):
         self.online_predictor = MLP(projection_size, projection_size, projection_hidden_size)
 
         # get device of network and make wrapper same device
-        device = get_module_device(net)
+        device = get_module_device(self.net)
         self.to(device)
 
         # send a mock image tensor to instantiate singleton parameters
