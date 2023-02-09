@@ -179,7 +179,7 @@ class BYOL(BaseModule):
     def __init__(
         self,
         image_size,
-        pretrainde=None,
+        pretrained=None,
         hidden_layer = -2,
         projection_size = 256,
         projection_hidden_size = 4096,
@@ -190,7 +190,7 @@ class BYOL(BaseModule):
         cosine_ema_steps = None
     ):
         super().__init__()
-        self.net = models.resnet50(pretrained=p),
+        self.net = models.resnet50(pretrained=False),
 
         # default SimCLR augmentation
 
