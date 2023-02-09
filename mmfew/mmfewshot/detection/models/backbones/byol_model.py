@@ -190,7 +190,7 @@ class BYOL(BaseModule):
         cosine_ema_steps = None
     ):
         super().__init__()
-        self.net = models.resnet50(pretrained=False),
+        self.net = models.resnet50(pretrained=False)
 
         # default SimCLR augmentation
 
