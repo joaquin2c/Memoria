@@ -1,6 +1,6 @@
 _base_ = [
     '../../../_base_/datasets/query_aware/base_voc_collab.py',
-    '../../../_base_/schedules/schedule.py', '../../attention-rpn_r50_c4.py',
+    '../../../_base_/schedules/schedule.py', '../../attention-rpn_byol.py',
     '../../../_base_/default_runtime.py'
 ]
 # classes splits are predefined in FewShotVOCDataset

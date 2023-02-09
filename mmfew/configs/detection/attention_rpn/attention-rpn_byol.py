@@ -1,12 +1,11 @@
 _base_ = [
-    '../_base_/models/faster_rcnn_r50_caffe_c4.py',
+    '../_base_/models/faster_rcnn_byol.py',
 ]
 num_support_ways = 2
 num_support_shots = 1
 # model settings
 model = dict(
     type='AttentionRPNDetector',
-    backbone=dict(frozen_stages=2),
     rpn_head=dict(
         type='AttentionRPNHead',
         in_channels=2048,

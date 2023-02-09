@@ -1,20 +1,12 @@
 # model settings
 norm_cfg = dict(type='BN', requires_grad=False)
-pretrained = 'open-mmlab://detectron2/resnet50_caffe'
 model = dict(
     type='FasterRCNN',
     pretrained=pretrained,
     backbone=dict(
-        type='BYOLDRAW',
-        depth=50,
-        num_stages=3,
-        strides=(1, 2, 2),
-        dilations=(1, 1, 1),
-        out_indices=(2, ),
-        frozen_stages=1,
-        norm_cfg=norm_cfg,
-        norm_eval=True,
-        style='caffe'),
+        type='BYOL',
+        image_size=320,
+        hidden_layer='avgpool'),
     rpn_head=dict(
         type='RPNHead',
         in_channels=1024,
