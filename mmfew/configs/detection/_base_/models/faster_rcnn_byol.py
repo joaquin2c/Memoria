@@ -2,7 +2,6 @@
 norm_cfg = dict(type='BN', requires_grad=False)
 model = dict(
     type='FasterRCNN',
-    pretrained=pretrained,
     backbone=dict(
         type='BYOL',
         image_size=320,
@@ -28,7 +27,6 @@ model = dict(
         type='StandardRoIHead',
         shared_head=dict(
             type='ResLayer',
-            pretrained=pretrained,
             depth=50,
             stage=3,
             stride=2,
