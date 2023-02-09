@@ -168,10 +168,10 @@ class NetWrapper(nn.Module):
 
         if not return_projection:
             return representation
-
-        projector = self._get_projector(representation)
-        projection = projector(representation)
-        return projection, representation
+	else:
+	    projector = self._get_projector(representation)
+            projection = projector(representation)
+            return projection
 
 # main class
 @BACKBONES.register_module()
@@ -188,13 +188,11 @@ class BYOL(BaseModule):
         moving_average_decay = 0.99,
         use_momentum = True,
         cosine_ema_steps = None,
-        return_embedding = False,
-        return_projection = True
+        return_projection=True
     ):
         super().__init__()
+        self.return_projection=return_projection
         self.net = models.resnet50(pretrained=False)
-        self.return_embedding = return_embedding ,
-        self.return_projection = return_projection
 
         # default SimCLR augmentation
 
@@ -253,31 +251,9 @@ class BYOL(BaseModule):
 
     def forward(
         self,
-        x,
-        return_embedding = self.return_embedding,
-        return_projection = self.return_projection
+        x        
     ):
 
-        if return_embedding:
-            return self.online_encoder(x, return_projection = return_projection)
+        return self.online_encoder(x, return_projection = self.return_projection)
 
-        image_one, image_two = self.augment1(x), self.augment2(x)
-
-        online_proj_one, _ = self.online_encoder(image_one)
-        online_proj_two, _ = self.online_encoder(image_two)
-
-        online_pred_one = self.online_predictor(online_proj_one)
-        online_pred_two = self.online_predictor(online_proj_two)
-
-        with torch.no_grad():
-            target_encoder = self._get_target_encoder() if self.use_momentum else self.online_encoder
-            target_proj_one, _ = target_encoder(image_one)
-            target_proj_two, _ = target_encoder(image_two)
-            target_proj_one.detach_()
-            target_proj_two.detach_()
-
-        loss_one = loss_fn(online_pred_one, target_proj_two.detach())
-        loss_two = loss_fn(online_pred_two, target_proj_one.detach())
-
-        loss = loss_one + loss_two
-        return loss.mean()
+       
