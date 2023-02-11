@@ -22,7 +22,7 @@ model = dict(
             aggregator_cfgs=[
                 dict(
                     type='DepthWiseCorrelationAggregator',
-                    in_channels=1024,
+                    in_channels=256,
                     with_fc=False)
             ])),
     roi_head=dict(
