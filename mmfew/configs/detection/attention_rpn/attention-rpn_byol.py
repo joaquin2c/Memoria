@@ -15,7 +15,7 @@ model = dict(
         roi_extractor=dict(
             type='SingleRoIExtractor',
             roi_layer=dict(type='RoIAlign', output_size=14, sampling_ratio=0),
-            out_channels=1024,
+            out_channels=256,
             featmap_strides=[16]),
         aggregation_layer=dict(
             type='AggregationLayer',
@@ -32,7 +32,7 @@ model = dict(
         bbox_roi_extractor=dict(
             type='SingleRoIExtractor',
             roi_layer=dict(type='RoIAlign', output_size=14, sampling_ratio=0),
-            out_channels=1024,
+            out_channels=256,
             featmap_strides=[16]),
         bbox_head=dict(
             type='MultiRelationBBoxHead',
