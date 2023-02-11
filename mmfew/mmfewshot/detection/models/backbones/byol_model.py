@@ -167,9 +167,9 @@ class NetWrapper(nn.Module):
         representation = self.get_representation(x)
 
         if not return_projection:
-            return representation
-		else:
-		    projector = self._get_projector(representation)
+		return representation
+	else:
+		projector = self._get_projector(representation)
 	        projection = projector(representation)
 	        return projection
 
@@ -253,7 +253,7 @@ class BYOL(BaseModule):
         self,
         x        
     ):
-    	answer=self.online_encoder(x, return_projection = self.return_projection)
-        return answer[...,None,None]
+	answer=self.online_encoder(x, return_projection = self.return_projection)
+	return answer[...,None,None]
 
        
