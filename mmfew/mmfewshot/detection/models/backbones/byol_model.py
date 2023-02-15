@@ -165,13 +165,12 @@ class NetWrapper(nn.Module):
 
     def forward(self, x, return_projection = True):
         representation = self.get_representation(x)
-
         if not return_projection:
-	    return representation
-	else:
-	    projector = self._get_projector(representation)
-	    projection = projector(representation)
-	    return projection
+            return representation
+        else:
+            projector = self._get_projector(representation)
+            projection = projector(representation)
+            return projection
 
 # main class
 @BACKBONES.register_module()
@@ -251,9 +250,6 @@ class BYOL(BaseModule):
 
     def forward(
         self,
-        x        
-    ):
-	answer=self.online_encoder(x, return_projection = self.return_projection)
-	return answer[None,...,None,None]
-
-       
+        x):
+        answer=self.online_encoder(x, return_projection = self.return_projection)
+        return answer[None,...,None,None]
