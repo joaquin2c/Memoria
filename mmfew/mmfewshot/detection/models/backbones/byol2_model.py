@@ -6,7 +6,7 @@ import random
 from mmdet.models.builder import BACKBONES
 from mmcv.runner import BaseModule
 from functools import wraps
-
+import torchvision.models as models
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -179,7 +179,6 @@ class NetWrapper(nn.Module):
 class BYOL2(BaseModule):
     def __init__(
         self,
-        net,
         image_size,
         hidden_layer = -2,
         projection_size = 256,
@@ -189,9 +188,10 @@ class BYOL2(BaseModule):
         moving_average_decay = 0.99,
         use_momentum = True,
         cosine_ema_steps = None
+            
     ):
         super().__init__()
-        self.net = net
+        self.net = models.resnet50(pretrained=False)
 
         # default SimCLR augmentation
 
@@ -215,7 +215,7 @@ class BYOL2(BaseModule):
         self.augment1 = default(augment_fn, DEFAULT_AUG)
         self.augment2 = default(augment_fn2, self.augment1)
 
-        self.online_encoder = NetWrapper(net, projection_size, projection_hidden_size, layer=hidden_layer)
+        self.online_encoder = NetWrapper(self.net, projection_size, projection_hidden_size, layer=hidden_layer)
 
         self.use_momentum = use_momentum
         self.target_encoder = None
@@ -227,7 +227,7 @@ class BYOL2(BaseModule):
         self.online_predictor = MLP(projection_size, projection_size, projection_hidden_size)
 
         # get device of network and make wrapper same device
-        device = get_module_device(net)
+        device = get_module_device(self.net)
         self.to(device)
 
         # send a mock image tensor to instantiate singleton parameters
