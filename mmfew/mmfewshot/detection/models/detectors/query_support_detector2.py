@@ -49,7 +49,7 @@ class QuerySupportDetector2(BaseDetector):
                  train_cfg: Optional[ConfigDict] = None,
                  test_cfg: Optional[ConfigDict] = None,
                  pretrained: Optional[ConfigDict] = None,
-                 support_pretrained: Optional[ConfigDict] = None
+                 support_pretrained: Optional[ConfigDict] = None,
                  init_cfg: Optional[ConfigDict] = None) -> None:
         super().__init__(init_cfg)
         backbone.pretrained = pretrained
