@@ -1,7 +1,7 @@
 # model settings
 norm_cfg = dict(type='BN', requires_grad=False)
 pretrained = 'open-mmlab://detectron2/resnet50_caffe'
-pretrained='path/self_byol.pt'
+pretrainedByol='path/self_byol.pt'
 model = dict(
     type='FasterRCNN',
     pretrained=pretrainedByol,
