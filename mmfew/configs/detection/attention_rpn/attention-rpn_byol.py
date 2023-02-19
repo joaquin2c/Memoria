@@ -5,7 +5,7 @@ num_support_ways = 2
 num_support_shots = 1
 # model settings
 model = dict(
-    type='AttentionRPNDetector',
+    type='AttentionRPNDetectorByol',
         rpn_head=dict(
         type='AttentionRPNHead',
         in_channels=1024,

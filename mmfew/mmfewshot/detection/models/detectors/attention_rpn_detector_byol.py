@@ -102,7 +102,7 @@ class AttentionRPNDetectorByol(QuerySupportDetector2):
             list[Tensor]: Features of support images, each item with shape
                  (N, C, H, W).
         """
-        feats = self.backbone(img,return_embedding='target')
+        feats = self.backbone(img,return_embedding='online')
         if self.with_neck:
             feats = self.neck(feats)
         return feats

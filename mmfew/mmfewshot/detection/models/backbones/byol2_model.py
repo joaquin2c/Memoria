@@ -180,6 +180,8 @@ class BYOL2(BaseModule):
     def __init__(
         self,
         image_size,
+        pretrained=None,
+        return_projection=False,
         hidden_layer = -2,
         projection_size = 256,
         projection_hidden_size = 4096,
@@ -192,9 +194,15 @@ class BYOL2(BaseModule):
     ):
         super().__init__()
         self.net = models.resnet50(pretrained=False)
-
-        # default SimCLR augmentation
-
+        self.return_projection=return_projection
+        
+        assert not (init_cfg and pretrained), \
+            'init_cfg and pretrained cannot be specified at the same time'
+        if isinstance(pretrained, str):
+            warnings.warn('DeprecationWarning: pretrained is deprecated, '
+                          'please use "init_cfg" instead')
+            self.init_cfg = dict(type='Pretrained', checkpoint=pretrained)
+        
         DEFAULT_AUG = torch.nn.Sequential(
             RandomApply(
                 T.ColorJitter(0.8, 0.8, 0.8, 0.2),
@@ -252,15 +260,20 @@ class BYOL2(BaseModule):
         self,
         x,
         return_embedding = False,
-        return_projection = True
     ):
 
         if return_embedding == 'online':
-            return self.online_encoder(x, return_projection = return_projection)
+            helper=[]
+            answer=self.online_encoder(x, return_projection = return_projection)
+            helper.append(answer[...,None,None])
+            return tuple(helper)
         elif return_embedding == 'target':
+            helper=[]
             target_encoder = self._get_target_encoder() if self.use_momentum else self.online_encoder
-            return target_encoder(x, return_projection = return_projection)
-
+            answer=target_encoder(x, return_projection = return_projection)
+            helper.append(answer[...,None,None])
+            return tuple(helper)
+        
         image_one, image_two = self.augment1(x), self.augment2(x)
 
         online_proj_one, _ = self.online_encoder(image_one)
