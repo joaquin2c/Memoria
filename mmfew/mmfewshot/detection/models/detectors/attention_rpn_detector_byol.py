@@ -90,7 +90,7 @@ class AttentionRPNDetectorByol(QuerySupportDetector2):
             feats = self.support_neck(feats)
         return feats
 
-        @auto_fp16(apply_to=('img', ))
+    @auto_fp16(apply_to=('img', ))
     def extract_query_feat(self, img: Tensor) -> List[Tensor]:
         """Extract features of query data.
 

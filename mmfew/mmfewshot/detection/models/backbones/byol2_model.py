@@ -114,7 +114,7 @@ class MLP(nn.Module):
 class NetWrapper(nn.Module):
     def __init__(self, net, projection_size, projection_hidden_size, layer = -2):
         super().__init__()
-        self.net = net
+        self.net = copy.deepcopy(net)
         self.layer = layer
 
         self.projector = None
