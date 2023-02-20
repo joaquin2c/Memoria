@@ -2,6 +2,7 @@
 import copy
 import math
 import random
+import warnings
 
 from mmdet.models.builder import BACKBONES
 from mmcv.runner import BaseModule
@@ -166,12 +167,10 @@ class NetWrapper(nn.Module):
 
     def forward(self, x, return_projection = True):
         representation = self.get_representation(x)
-
-        if not return_projection:
-            return representation
-
         projector = self._get_projector(representation)
         projection = projector(representation)
+        if not return_projection:
+            return projection
         return projection, representation
 
 # main class
@@ -183,16 +182,16 @@ class BYOL2(BaseModule):
         pretrained=None,
         return_projection=False,
         hidden_layer = -2,
-        projection_size = 2048,
+        projection_size = 1024,
         projection_hidden_size = 4096,
         augment_fn = None,
         augment_fn2 = None,
         moving_average_decay = 0.99,
         use_momentum = True,
-        cosine_ema_steps = None
-            
+        cosine_ema_steps = None,
+	init_cfg=None            
     ):
-        super().__init__()
+        super(BYOL2,self).__init__(init_cfg)
         self.net = models.resnet50(pretrained=False)
         self.return_projection=return_projection
         
