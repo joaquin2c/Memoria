@@ -8,7 +8,6 @@ model = dict(
     backbone=dict(
         type='BYOL2',
         image_size=500,
-        proyection_size=2048,
         hidden_layer='avgpool'),
     rpn_head=dict(
         type='RPNHead',

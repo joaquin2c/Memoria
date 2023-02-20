@@ -183,7 +183,7 @@ class BYOL2(BaseModule):
         pretrained=None,
         return_projection=False,
         hidden_layer = -2,
-        projection_size = 256,
+        projection_size = 2048,
         projection_hidden_size = 4096,
         augment_fn = None,
         augment_fn2 = None,
@@ -264,13 +264,13 @@ class BYOL2(BaseModule):
 
         if return_embedding == 'online':
             helper=[]
-            answer=self.online_encoder(x, return_projection = return_projection)
+            answer=self.online_encoder(x, return_projection = False)
             helper.append(answer[...,None,None])
             return tuple(helper)
         elif return_embedding == 'target':
             helper=[]
             target_encoder = self._get_target_encoder() if self.use_momentum else self.online_encoder
-            answer=target_encoder(x, return_projection = return_projection)
+            answer=target_encoder(x, return_projection = False)
             helper.append(answer[...,None,None])
             return tuple(helper)
         
