@@ -52,11 +52,11 @@ def getImageObjects(img_prefix,newPath,pathsDataset):
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser()
+    parser.add_argument("pathsDataset",help="Dirección de los datasets", nargs='+')
     parser.add_argument("--img_prefix",help="Dirección de origen")
     parser.add_argument("--newPath",help="Nueva dirección de guardado")
-    parser.add_argument("--pathsDataset",help="Dirección de los datasets")
     args,unknown =parser.parse_known_args()
     img_prefix=str(args.img_prefix)
-    newPath=int(args.newPath)
-    pathsDataset=int(args.pathsDataset)
+    newPath=(args.newPath)
+    pathsDataset=args.pathsDataset
     getImageObjects(img_prefix,newPath,pathsDataset)
