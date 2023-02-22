@@ -2,6 +2,7 @@ import json
 import mmcv
 import xml.etree.ElementTree as ET
 import os
+import os.path as osp
 import cv2
 import numpy as np
 import argparse
@@ -32,9 +33,9 @@ def getImageObjects(img_prefix,newPath,pathsDataset):
              'chair', 'diningtable', 'dog', 'horse',
              'sheep', 'train', 'tvmonitor', 'bird',
              'bus', 'cow', 'motorbike', 'sofa')
-    for classe in Classes:
-        path = os.path.join(newPath, classe)
-        os.mkdir(path)
+   #for classe in Classes:
+   #     path = os.path.join(newPath, classe)
+   #     os.mkdir(path)
   
     for vocdata in pathsDataset:
         img_names = mmcv.list_from_file(vocdata)
