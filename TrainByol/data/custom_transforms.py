@@ -1,11 +1,8 @@
-import cairocffi as cairo
-import cairosvg
 from io import BytesIO
 import math
 import numpy as np
 from PIL import Image
 import random
-import skimage.feature
 import torch
 import torchvision.transforms as T
 

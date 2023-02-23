@@ -10,6 +10,7 @@ from torch.utils.data import Subset
 import torchvision.models as models
 import torchvision.transforms as T
 import warnings
+import argparse
 
 def trainByol(weightsPath,pathImages,pathSketch,epochs):
     train_dataset = PairsDatasetDraw(
@@ -54,10 +55,11 @@ def trainByol(weightsPath,pathImages,pathSketch,epochs):
     learner.load_state_dict(torch.load(weightsPath))
     learner = learner.to('cuda')
     learner.train()
-    filehandler = open('../checkpoints/training_draw_byol.txt', 'w')
+    filehandler = open('../training_draw_byol.txt', 'w')
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore')
         running_loss = np.array([], dtype=np.float32)
+        print('Beginning trainning')
         for epoch in range(epochs):
             i = 0
             for images in train_loader:
@@ -72,7 +74,7 @@ def trainByol(weightsPath,pathImages,pathSketch,epochs):
                 filehandler.flush()
                 i += 1
                 if i%(epoch_size/2)==0:
-                    torch.save(learner.state_dict(), '../checkpoints/self_bimodal_byol_sketchy_then_shoes_{}epochs.pt'.format(epochs))
+                    torch.save(learner.state_dict(), 'path/self_bimodal_byol_Quick_Draw{}epochs.pt'.format(epochs))
             running_loss = np.array([], dtype=np.float32)
             sys.stdout.write('\n')
     filehandler.close()
@@ -85,8 +87,8 @@ if __name__=="__main__":
     parser.add_argument("--pathSketch",help="Dirección de los sketchs")
     parser.add_argument("--epochs",help="epocas")
     args,unknown =parser.parse_known_args()
-    checkpoint=(args.checkpoint)
-    pathImages=(args.pathImages)
-    pathSketch=(args.pathSketch)
-    epochs=str(args.epochs)
+    checkpoint=str(args.checkpoint)
+    pathImages=str(args.pathImages)
+    pathSketch=str(args.pathSketch)
+    epochs=int(args.epochs)
     trainByol(checkpoint,pathImages,pathSketch,epochs)

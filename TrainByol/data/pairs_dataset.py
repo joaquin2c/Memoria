@@ -5,6 +5,7 @@ from PIL import Image, ImageFile
 import random
 import torch
 from torchvision import transforms
+import mmcv
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
@@ -55,15 +56,13 @@ class PairsDatasetDraw(PairsDataset):
         
         for class_path in glob.glob(os.path.join(sketch_root_dir, '**')):
             class_name = os.path.basename(class_path)
-            image_paths_to_sketch_paths[class_name]=[]
-            for sketch_path in glob.iglob(os.path.join(class_path, '**')):
-                image_paths_to_sketch_paths[class_name].append(sketch_path)
-        
+            image_paths_to_sketch_paths[class_name]=mmcv.list_from_file(os.path.join(class_path,'trainval.txt'))
         for class_path in glob.glob(os.path.join(image_root_dir, '**')):
             class_name = os.path.basename(class_path)
             large=len(image_paths_to_sketch_paths[class_name])
             for image_path in glob.iglob(os.path.join(class_path, '**')):
-                self.image_sketch_pairs.append((image_path, image_paths_to_sketch_paths[class_name].pop(random.randrange(large))))
+                sketch_path=os.path.join(sketch_root_dir,class_name,f"{image_paths_to_sketch_paths[class_name].pop(random.randrange(large))}.jpg")
+                self.image_sketch_pairs.append((image_path, sketch_path))
                 large-=1
 
 
