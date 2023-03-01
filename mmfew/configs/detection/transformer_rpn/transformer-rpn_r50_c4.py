@@ -1,5 +1,5 @@
 _base_ = [
-    '../_base_/models/faster_rcnn_r50_caffe_c4.py',
+    '../_base_/models/faster_rcnn_r50_caffe_c4_transformers.py',
 ]
 num_support_ways = 2
 num_support_shots = 1
