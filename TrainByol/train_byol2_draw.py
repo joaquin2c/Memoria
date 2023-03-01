@@ -74,7 +74,7 @@ def trainByol(weightsPath,pathImages,pathSketch,epochs):
                 filehandler.flush()
                 i += 1
                 if i%(epoch_size/2)==0:
-                    torch.save(learner.state_dict(), 'path/self_bimodal_byol_Quick_Draw{}epochs.pt'.format(epochs))
+                    torch.save(learner.state_dict(), 'path/self_bimodal_byol_Quick_Draw_{}_epochs_NotAll.pt'.format(epochs))
             running_loss = np.array([], dtype=np.float32)
             sys.stdout.write('\n')
     filehandler.close()

@@ -8,7 +8,7 @@ import torch
 from torchvision.datasets import ImageFolder
 import torchvision.models as models
 import torchvision.transforms as T
-
+import argparse
 
 def get_embeddings_labels(model, dataloader, mode):
     model.eval()
@@ -115,4 +115,19 @@ def eval_Byol(checkpoint,imagePath,sketchPath,nameImage):
   learner = learner.to('cuda')
   queries_embeddings, queries_labels = get_embeddings_labels(learner, queries_loader, 'target')
   catalogue_embeddings, catalogue_labels = get_embeddings_labels(learner, catalogue_loader, 'online')
-  plot_best_10_multiple(nameImage,queries, queries_embeddings, queries_labels, catalogue, catalogue_embeddings, catalogue_labels, [0,100,200,300,400])
+  plot_best_10_multiple(nameImage,queries, queries_embeddings, queries_labels, catalogue, catalogue_embeddings, catalogue_labels, [0,2120,4200,6300,8422,10220,12220,14220,16200,18322,20212,22200,24202,26232,28220,30220,32202])
+
+
+if __name__=="__main__":
+  parser=argparse.ArgumentParser()
+  parser.add_argument("--checkpoint",help="Dirección de la carpeta draw")
+  parser.add_argument("--imagePath",help="Dirección de la carpeta draw")
+  parser.add_argument("--sketchPath",help="Dirección de la carpeta draw")
+  parser.add_argument("--nameImage",help="Dirección de la carpeta draw")
+
+  args,unknown =parser.parse_known_args()
+  checkpoint=str(args.checkpoint)
+  imagePath=str(args.imagePath)
+  sketchPath=str(args.sketchPath)
+  nameImage=str(args.nameImage)
+  eval_Byol(checkpoint,imagePath,sketchPath,nameImage)
