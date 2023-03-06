@@ -1,12 +1,13 @@
 _base_ = [
-    '../_base_/models/faster_rcnn_r50_caffe_c4_transformers.py',
+    '../_base_/models/faster_rcnn_r50_caffe_c4_transformers_V3.py',
 ]
 num_support_ways = 2
 num_support_shots = 1
 # model settings
 model = dict(
-    type='AttentionRPNDetector',
+    type='AttentionRPNDetector2',
     backbone=dict(frozen_stages=2),
+    support_backbone=dict(frozen_stages=2),
     rpn_head=dict(
         type='TransformerRPNHead',
         # in_channels=1024,
