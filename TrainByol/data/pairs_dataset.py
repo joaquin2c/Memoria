@@ -9,6 +9,7 @@ import mmcv
 
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
+#Emparejamiento de datos original
 class PairsDataset(torch.utils.data.Dataset):
     
     def __init__(self, image_root_dir, sketch_root_dir):
@@ -48,7 +49,7 @@ class PairsDataset(torch.utils.data.Dataset):
         sketch = sketch.transpose(2, 0, 1)
         return torch.from_numpy(image), torch.from_numpy(sketch)
 
-
+#Modificado para sketches, solo bastaba modificar el __init__ para que la lista guarde todos los datos desde un comienzo 
 class PairsDatasetDraw(PairsDataset):  
     def __init__(self, image_root_dir, sketch_root_dir):
         self.image_sketch_pairs = []
@@ -64,7 +65,8 @@ class PairsDatasetDraw(PairsDataset):
             if class_name in Classes:
                 large=len(image_paths_to_sketch_paths[class_name])
                 for image_path in glob.iglob(os.path.join(class_path, '**')):
-                    sketch_path=os.path.join(sketch_root_dir,class_name,f"{image_paths_to_sketch_paths[class_name].pop(random.randrange(large))}.jpg")
+
+#No se modifico este parte del codigo, no se donde lo usan                    sketch_path=os.path.join(sketch_root_dir,class_name,f"{image_paths_to_sketch_paths[class_name].pop(random.randrange(large))}.jpg")
                     self.image_sketch_pairs.append((image_path, sketch_path))
                     large-=1
 

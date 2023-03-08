@@ -13,11 +13,14 @@ import warnings
 import argparse
 
 def trainByol(weightsPath,pathImages,pathSketch,epochs):
+    #PairsDatasetDraw fue la modificación necesaria para que funcionara con dibujos,
+    #pero el original tampoco funcionaría bien con VOC dataset
     train_dataset = PairsDatasetDraw(
         pathImages,
         pathSketch
     )
-
+    
+    #Toda esta parte no se modifico
     transforms_1 = T.Compose([
         BatchTransform(SelectFromTuple(0)),
         BatchTransform(PadToSquare(255)),
@@ -38,10 +41,17 @@ def trainByol(weightsPath,pathImages,pathSketch,epochs):
         collate_fn=pair_collate_fn,
         num_workers=4
     )
+    
+    #No explore cargar este modelo con algun peso, ya que más adelante se 
+    #carga unos pesos al modelo completo, pero imagino que si se entrena desde cero,
+    #sería buena idea comenzar usando el resnet50 del openmmlab
     encoder = models.resnet50(pretrained=False)
     empty_transform = T.Compose([])
     #epochs = 5
-    epoch_size = len(train_loader)
+    epoch_size = len(train_loader)}
+    
+    #En teoria el byol2 (modificado) debería dar mejores resultados que el byol en sketches, pero no probe el original
+    #dentro de los dibujos, pero ambos contienen la misma estructura, por lo que basta con modificar BYOL2 por BYOL
     learner = BYOL2(
         encoder,
         image_size=224,
@@ -80,6 +90,8 @@ def trainByol(weightsPath,pathImages,pathSketch,epochs):
     filehandler.close()
 
     
+#Esta fue la otra parte modificado de este codigo, siendo necesario explicitar los paths de los pesos, carpeta de imagenes y epocas
+# python ...../train_byol2_draw.py --checkpoint="path/checkpoint" --pathImages="path/Imagenes" --pathSketch="path/mismaCapaDeLasImagenes?" --epochs=10
 if __name__=="__main__":
     parser=argparse.ArgumentParser()
     parser.add_argument("--checkpoint",help="Dirección de los pesos del modelo")
