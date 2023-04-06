@@ -5,10 +5,10 @@ from os.path import isfile, join
 from sklearn.model_selection import train_test_split
 
 def files_to_txt(mypath,seed):
-  Clases_draw=('aeroplane', 'bicycle', 'boat', 'car', 'cat',
-                        'chair', 'diningtable', 'dog', 'horse',
-                        'sheep', 'train', 'tvmonitor', 'bird',
-                        'bus', 'cow', 'motorbike', 'sofa')
+  Clases_draw=('dining table', 'toilet', 'tv', 'laptop', 'mouse',
+                 'remote', 'keyboard', 'cell phone', 'microwave', 'oven',
+                 'toaster', 'sink', 'book', 'clock', 'vase',
+                 'scissors', 'teddy bear', 'toothbrush')
   for i in Clases_draw:
     final_path=mypath+"/"+i
     fileslist = [f[:-4] for f in listdir(final_path)]

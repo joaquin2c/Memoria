@@ -6,12 +6,12 @@ from .dataloader_wrappers import NWayKShotDataloader
 from .dataset_wrappers import NWayKShotDataset, QueryAwareDataset
 from .pipelines import CropResizeInstance, GenerateMask
 from .utils import NumpyEncoder, get_copy_dataset_type
-from .voc import VOC_SPLIT, FewShotVOCDataset, DrawSuppFewShotVOCDataset
+from .voc import VOC_SPLIT, FewShotVOCDataset, DrawSuppFewShotVOCDataset, DrawCOCODataset
 
 __all__ = [
     'build_dataloader', 'build_dataset', 'QueryAwareDataset',
     'NWayKShotDataset', 'NWayKShotDataloader', 'BaseFewShotDataset',
-    'DrawSuppFewShotVOCDataset','FewShotVOCDataset', 'FewShotCocoDataset', 'CropResizeInstance',
+    'DrawSuppFewShotVOCDataset','DrawCOCODataset','FewShotVOCDataset', 'FewShotCocoDataset', 'CropResizeInstance',
     'GenerateMask', 'NumpyEncoder', 'COCO_SPLIT', 'VOC_SPLIT',
     'get_copy_dataset_type'
 ]

@@ -40,6 +40,41 @@ VOC_SPLIT = dict(
                          'car', 'chair', 'cow', 'diningtable', 'dog', 'horse',
                           'train', 'tvmonitor'))
 
+COCO_SPLIT = dict(
+    ALL_CLASSES=('bicycle', 'car', 'motorcycle', 'airplane', 'bus',
+                 'train', 'truck', 'traffic light', 'fire hydrant',
+                 'stop sign', 'bench', 'bird', 'cat', 'dog',
+                 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra',
+                 'giraffe', 'backpack', 'umbrella',
+                 'suitcase','baseball bat', 'skateboard',
+                 'tennis racket', 'wine glass', 'cup',
+                 'fork', 'knife', 'spoon', 'banana', 'apple',
+                 'sandwich', 'broccoli', 'carrot', 'hot dog',
+                 'pizza', 'donut', 'cake', 'chair', 'couch', 'potted plant',
+                 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse',
+                 'remote', 'keyboard', 'cell phone', 'microwave', 'oven',
+                 'toaster', 'sink', 'book', 'clock', 'vase',
+                 'scissors', 'teddy bear', 'toothbrush'),
+    NOVEL_CLASSES=('bicycle', 'car', 'motorcycle', 'airplane', 'bus',
+                   'train', 'bird', 'elephant', 'dog', 'horse', 'sheep',
+                   'cow', 'chair', 'couch', 'potted plant',
+                   'dining table', 'tv'),
+    BASE_CLASSES=('truck', 'cat','traffic light', 'fire hydrant', 'stop sign',
+                  'bench', 'bear', 'zebra',
+                  'giraffe', 'backpack', 'umbrella',
+                  'suitcase', 'baseball bat', 'skateboard',
+                  'tennis racket', 'wine glass', 'cup', 'fork',
+                  'knife', 'spoon', 'banana', 'apple', 'sandwich',
+                  'broccoli', 'carrot', 'hot dog', 'pizza', 'donut',
+                  'cake', 'bed', 'toilet', 'laptop', 'mouse', 'remote',
+                  'keyboard', 'cell phone', 'microwave', 'oven', 'toaster',
+                  'sink', 'book', 'clock', 'vase', 'scissors',
+                  'teddy bear', 'toothbrush'))
+
+
+
+
+
 @DATASETS.register_module()
 class FewShotVOCDataset(BaseFewShotDataset):
     """VOC dataset for few shot detection.
@@ -909,8 +944,15 @@ class DrawSuppFewShotVOCDataset(BaseFewShotDataset):
                     eval_results[f'AR@{num}'] = ar[i]
         return eval_results
 
+
+
+
+
+
+
+
 @DATASETS.register_module()
-class DrawFewShotVOCDataset(BaseFewShotDataset):
+class DrawCOCODataset(BaseFewShotDataset):
     """VOC dataset for few shot detection.
 
     Args:
@@ -963,7 +1005,7 @@ class DrawFewShotVOCDataset(BaseFewShotDataset):
                 if test_mode else 'Train dataset'
         else:
             self.dataset_name = dataset_name
-        self.SPLIT = VOC_SPLIT
+        self.SPLIT = COCO_SPLIT
 
         # the split_id would be set value in `self.get_classes`
         self.split_id = None
@@ -988,7 +1030,6 @@ class DrawFewShotVOCDataset(BaseFewShotDataset):
                 f'num_novel_shots/num_base_shots at the same time.'
         self.coordinate_offset = coordinate_offset
         self.use_difficult = use_difficult
-        self.support_data_infos=[]
         super().__init__(
             classes=None,
             ann_shot_filter=ann_shot_filter,
@@ -1091,50 +1132,6 @@ class DrawFewShotVOCDataset(BaseFewShotDataset):
 
         return data_infos
 
-    def prepare_train_img(self,
-                          idx: int,
-                          pipeline_key: Optional[str] = None,
-                          gt_idx: Optional[List[int]] = None) -> Dict:
-        """Get training data and annotations after pipeline.
-
-        Args:
-            idx (int): Index of data.
-            pipeline_key (str): Name of pipeline
-            gt_idx (list[int]): Index of used annotation.
-
-        Returns:
-            dict: Training data and annotation after pipeline with new keys \
-                introduced by pipeline.
-        """
-        if pipeline_key=='support':
-          img_info = self.support_data_infos[idx]
-          ann_info = copy.deepcopy(img_info['ann'])
-        else:
-          img_info = self.data_infos[idx]
-          ann_info = self.get_ann_info(idx)
-
-        # select annotation in `gt_idx`
-        if gt_idx is not None:
-            selected_ann_info = {
-                'bboxes': ann_info['bboxes'][gt_idx],
-                'labels': ann_info['labels'][gt_idx]
-            }
-            # keep pace with new annotations
-            new_img_info = copy.deepcopy(img_info)
-            new_img_info['ann'] = selected_ann_info
-            results = dict(img_info=new_img_info, ann_info=selected_ann_info)
-        # use all annotations
-        else:
-            results = dict(img_info=copy.deepcopy(img_info), ann_info=ann_info)
-
-        if self.proposals is not None:
-            results['proposals'] = self.proposals[idx]
-
-        self.pre_pipeline(results)
-        if pipeline_key is None:
-            return self.pipeline(results)
-        else:
-            return self.multi_pipelines[pipeline_key](results)
 
 
     def load_annotations_support(
@@ -1145,9 +1142,9 @@ class DrawFewShotVOCDataset(BaseFewShotDataset):
         support_data=[]
         all_paths = ann_file.split("/")
         data_clase=all_paths[-2]
-        filename=f'Draw/{data_clase}/{img_name}.jpg'
+        filename=f'{data_clase}/{img_name}.jpg'
 
-        bboxes = np.array([[0,0,256,256]])
+        bboxes = np.array([[0,0,640,480]])
         labels = np.array([self.cat2label[data_clase]])
         bboxes_ignore=np.array([])
         labels_ignore=np.array([])
@@ -1161,17 +1158,11 @@ class DrawFewShotVOCDataset(BaseFewShotDataset):
         support_data.append(dict(
                     id=img_name,
                     filename=filename,
-                    width=256,
-                    height=256,
+                    width=640,
+                    height=480,
                     ann=ann_info))
         return support_data
 
-
-    def get_supp_id(
-          self,
-          idx:int
-    ):
-        return self.support_data_infos[idx]['ann']['labels'].astype(np.int).tolist()
 
 
     def load_annotations_xml(
@@ -1193,141 +1184,20 @@ class DrawFewShotVOCDataset(BaseFewShotDataset):
             list[dict]: Annotation info from XML file.
         """
         data_infos = []
-        img_names = mmcv.list_from_file(ann_file)
-        for img_name in img_names:
-            # ann file in image path format
-            if 'VOC2007' in img_name:
-                dataset_year = 'VOC2007'
-                img_id = img_name.split('/')[-1].split('.')[0]
-                filename = img_name
-            # ann file in image path format
-            elif 'VOC2012' in img_name:
-                dataset_year = 'VOC2012'
-                img_id = img_name.split('/')[-1].split('.')[0]
-                filename = img_name
-            # ann file in image id format
-            elif 'VOC2007' in ann_file:
-                dataset_year = 'VOC2007'
-                img_id = img_name
-                filename = f'VOC2007/JPEGImages/{img_name}.jpg'
-            # ann file in image id format
-            elif 'VOC2012' in ann_file:
-                dataset_year = 'VOC2012'
-                img_id = img_name
-                filename = f'VOC2012/JPEGImages/{img_name}.jpg'
+        classes = mmcv.list_from_file(ann_file)
+        for clase in classes:
+            path_class=osp.join(self.img_prefix,clase)
+            img_names = mmcv.list_from_file(path_class)
+            for img_name in img_names:
+                # ann file in image path format
+                if 'COCO' in ann_file:
+                    data_infos+=self.load_annotations_support(img_name,path_class)
+                    continue
+                else:
+                    raise ValueError('Cannot infer dataset year from img_prefix')
 
-            elif 'Draw' in ann_file:
-                self.support_data_infos+=self.load_annotations_support(img_name,ann_file)
-                continue
-            else:
-                raise ValueError('Cannot infer dataset year from img_prefix')
-
-            xml_path = osp.join(self.img_prefix, dataset_year, 'Annotations',
-                                f'{img_id}.xml')
-            tree = ET.parse(xml_path)
-            root = tree.getroot()
-            size = root.find('size')
-            if size is not None:
-                width = int(size.find('width').text)
-                height = int(size.find('height').text)
-            else:
-                img_path = osp.join(self.img_prefix, dataset_year,
-                                    'JPEGImages', f'{img_id}.jpg')
-                img = mmcv.imread(img_path)
-                width, height = img.size
-            ann_info = self._get_xml_ann_info(dataset_year, img_id, classes)
-            data_infos.append(
-                dict(
-                    id=img_id,
-                    filename=filename,
-                    width=width,
-                    height=height,
-                    ann=ann_info))
         return data_infos
 
-    def _get_xml_ann_info(self,
-                          dataset_year: str,
-                          img_id: str,
-                          classes: Optional[List[str]] = None) -> Dict:
-        """Get annotation from XML file by img_id.
-
-        Args:
-            dataset_year (str): Year of voc dataset. Options are
-                'VOC2007', 'VOC2012'
-            img_id (str): Id of image.
-            classes (list[str] | None): Specific classes to load form
-                xml file. If set to None, it will use classes of whole
-                dataset. Default: None.
-
-        Returns:
-            dict: Annotation info of specified id with specified class.
-        """
-        if classes is None:
-            classes = self.CLASSES
-        bboxes = []
-        labels = []
-        bboxes_ignore = []
-        labels_ignore = []
-
-        xml_path = osp.join(self.img_prefix, dataset_year, 'Annotations',
-                            f'{img_id}.xml')
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
-        for obj in root.findall('object'):
-            name = obj.find('name').text
-            if name not in classes:
-                continue
-            label = self.cat2label[name]
-            if self.use_difficult:
-                difficult = 0
-            else:
-                difficult = obj.find('difficult')
-                difficult = 0 if difficult is None else int(difficult.text)
-            bnd_box = obj.find('bndbox')
-
-            # It should be noted that in the original mmdet implementation,
-            # the four coordinates are reduced by 1 when the annotation
-            # is parsed. Here we following detectron2, only xmin and ymin
-            # will be reduced by 1 during training. The groundtruth used for
-            # evaluation or testing keep consistent with original xml
-            # annotation file and the xmin and ymin of prediction results
-            # will add 1 for inverse of data loading logic.
-            bbox = [
-                int(float(bnd_box.find('xmin').text)),
-                int(float(bnd_box.find('ymin').text)),
-                int(float(bnd_box.find('xmax').text)),
-                int(float(bnd_box.find('ymax').text))
-            ]
-            if not self.test_mode:
-                bbox = [
-                    i + offset
-                    for i, offset in zip(bbox, self.coordinate_offset)
-                ]
-            ignore = False
-            if difficult or ignore:
-                bboxes_ignore.append(bbox)
-                labels_ignore.append(label)
-            else:
-                bboxes.append(bbox)
-                labels.append(label)
-        if not bboxes:
-            bboxes = np.zeros((0, 4))
-            labels = np.zeros((0, ))
-        else:
-            bboxes = np.array(bboxes, ndmin=2)
-            labels = np.array(labels)
-        if not bboxes_ignore:
-            bboxes_ignore = np.zeros((0, 4))
-            labels_ignore = np.zeros((0, ))
-        else:
-            bboxes_ignore = np.array(bboxes_ignore, ndmin=2)
-            labels_ignore = np.array(labels_ignore)
-        ann_info = dict(
-            bboxes=bboxes.astype(np.float32),
-            labels=labels.astype(np.int64),
-            bboxes_ignore=bboxes_ignore.astype(np.float32),
-            labels_ignore=labels_ignore.astype(np.int64))
-        return ann_info
 
     def _filter_imgs(self,
                      min_size: int = 32,
@@ -1473,22 +1343,6 @@ class DrawFewShotVOCDataset(BaseFewShotDataset):
                 for i, num in enumerate(proposal_nums):
                     eval_results[f'AR@{num}'] = ar[i]
         return eval_results
-
-    def save_supp_data_infos(self, output_path: str) -> None:
-        """Save support_data_infos into json."""
-        # numpy array will be saved as list in the json
-        meta_info = [{'CLASSES': self.CLASSES, 'img_prefix': self.img_prefix}]
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(
-                meta_info + self.support_data_infos,
-                f,
-                ensure_ascii=False,
-                indent=4,
-                cls=NumpyEncoder)
-
-
-
-
 
 
 
