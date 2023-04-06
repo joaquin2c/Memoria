@@ -39,7 +39,7 @@ test_pipeline = [
         ])
 ]
 # classes splits are predefined in FewShotVOCDataset
-data_root = '../../../Data/COCODraw'
+data_root = '../../../Data/COCODraw/data'
 data_root_query= '../../../Data/COCO'
 data = dict(
     samples_per_gpu=2,
@@ -67,7 +67,7 @@ data = dict(
             ann_cfg=[
                 dict(
                      type='ann_file',
-                     ann_file=data_root+'/data/Base_train.txt'),
+                     ann_file=data_root+'/Base_train.txt'),
             ],
             img_prefix=data_root,
             multi_pipelines=train_multi_pipelines,
@@ -109,7 +109,7 @@ data = dict(
         ann_cfg=[
                 dict(
                      type='ann_file',
-                     ann_file=data_root+'/data/Base_test.txt'),
+                     ann_file=data_root+'/Base_test.txt'),
             ],
         img_prefix=data_root,
         pipeline=train_multi_pipelines['support'],

@@ -1059,7 +1059,7 @@ class DrawCOCODataset(BaseFewShotDataset):
         if isinstance(classes, str):
             assert classes in self.SPLIT.keys(
             ), f'{self.dataset_name}: not a pre-defined classes or ' \
-               f'split in VOC_SPLIT'
+               f'split in COCO_SPLIT'
             class_names = self.SPLIT[classes]
             if 'BASE_CLASSES' in classes:
                 assert self.num_novel_shots is None, \
@@ -1069,7 +1069,6 @@ class DrawCOCODataset(BaseFewShotDataset):
                 assert self.num_base_shots is None, \
                     f'{self.dataset_name}: NOVEL_CLASSES do not have ' \
                     f'base instances.'
-            self.split_id = int(classes[-1])
         elif isinstance(classes, (tuple, list)):
             class_names = classes
         else:
@@ -1085,10 +1084,10 @@ class DrawCOCODataset(BaseFewShotDataset):
         ann_shot_filter = {}
         if self.num_novel_shots is not None:
             for class_name in self.SPLIT[
-                    f'NOVEL_CLASSES_SPLIT{self.split_id}']:
+                    f'NOVEL_CLASSES']:
                 ann_shot_filter[class_name] = self.num_novel_shots
         if self.num_base_shots is not None:
-            for class_name in self.SPLIT[f'BASE_CLASSES_SPLIT{self.split_id}']:
+            for class_name in self.SPLIT[f'BASE_CLASSES']:
                 ann_shot_filter[class_name] = self.num_base_shots
         return ann_shot_filter
 
