@@ -48,6 +48,17 @@ COCO_SPLIT = dict(
                   'sink', 'book', 'clock', 'vase', 'scissors',
                   'teddy bear', 'toothbrush'))
 
+Original_COCO={'person': 1,'bicycle': 2, 'car': 3, 'motorcycle': 4, 'airplane': 5, 'bus': 6, 'train': 7, 'truck': 8, 'boat': 9,
+               'traffic light': 10,  'fire hydrant': 11, 'stop sign': 13, 'parking meter': 14, 'bench': 15, 'bird': 16, 'cat': 17,
+               'dog': 18, 'horse': 19, 'sheep': 20, 'cow': 21, 'elephant': 22, 'bear': 23, 'zebra': 24, 'giraffe': 25, 'backpack': 27,
+               'umbrella': 28, 'handbag': 31, 'tie': 32, 'suitcase': 33, 'frisbee': 34, 'skis': 35, 'snowboard': 36, 'sports ball': 37,
+               'kite': 38, 'baseball bat': 39, 'baseball glove': 40, 'skateboard': 41, 'surfboard': 42, 'tennis racket': 43, 'bottle': 44,
+               'wine glass': 46, 'cup': 47, 'fork': 48, 'knife': 49, 'spoon': 50, 'bowl': 51, 'banana': 52, 'apple': 53, 'sandwich': 54,
+               'orange': 55, 'broccoli': 56, 'carrot': 57, 'hot dog': 58, 'pizza': 59, 'donut': 60, 'cake': 61, 'chair': 62, 'couch': 63,
+               'potted plant': 64, 'bed': 65, 'dining table': 67, 'toilet': 70, 'tv': 72, 'laptop': 73, 'mouse': 74, 'remote': 75,
+               'keyboard': 76, 'cell phone': 77, 'microwave': 78, 'oven': 79, 'toaster': 80, 'sink': 81, 'refrigerator': 82, 'book': 84,
+               'clock': 85, 'vase': 86, 'scissors': 87, 'teddy bear': 88, 'hair drier': 89, 'toothbrush': 90}
+
 
 @DATASETS.register_module()
 class FewShotCocoDataset(BaseFewShotDataset, CocoDataset):
@@ -564,7 +575,608 @@ class FewShotCocoDataset(BaseFewShotDataset, CocoDataset):
 
             return eval_results
 
+@DATASETS.register_module()
+class DrawCocoDataset(BaseFewShotDataset):
+    """COCO dataset for few shot detection.
 
+    Args:
+        classes (str | Sequence[str] | None): Classes for model training and
+            provide fixed label for each class. When classes is string,
+            it will load pre-defined classes in :obj:`FewShotCocoDataset`.
+            For example: 'BASE_CLASSES', 'NOVEL_CLASSES` or `ALL_CLASSES`.
+        num_novel_shots (int | None): Max number of instances used for each
+            novel class. If is None, all annotation will be used.
+            Default: None.
+        num_base_shots (int | None): Max number of instances used for each base
+            class. If is None, all annotation will be used. Default: None.
+        ann_shot_filter (dict | None): Used to specify the class and the
+            corresponding maximum number of instances when loading
+            the annotation file. For example: {'dog': 10, 'person': 5}.
+            If set it as None, `ann_shot_filter` will be
+            created according to `num_novel_shots` and `num_base_shots`.
+        min_bbox_area (int | float | None):  Filter images with bbox whose
+            area smaller `min_bbox_area`. If set to None, skip
+            this filter. Default: None.
+        dataset_name (str | None): Name of dataset to display. For example:
+            'train dataset' or 'query dataset'. Default: None.
+        test_mode (bool): If set True, annotation will not be loaded.
+            Default: False.
+    """
+
+    def __init__(self,
+                 classes: Optional[Union[str, Sequence[str]]] = None,
+                 num_novel_shots: Optional[int] = None,
+                 num_base_shots: Optional[int] = None,
+                 ann_shot_filter: Optional[Dict[str, int]] = None,
+                 min_bbox_area: Optional[Union[int, float]] = None,
+                 dataset_name: Optional[str] = None,
+                 test_mode: bool = False,
+                 **kwargs) -> None:
+        if dataset_name is None:
+            self.dataset_name = 'Test dataset' \
+                if test_mode else 'Train dataset'
+        else:
+            self.dataset_name = dataset_name
+        self.SPLIT = COCO_SPLIT
+        self.original=Original_COCO
+        assert classes is not None, f'{self.dataset_name}: classes in ' \
+                                    f'`FewShotCocoDataset` can not be None.'
+        # `ann_shot_filter` will be used to filter out excess annotations
+        # for few shot setting. It can be configured manually or generated
+        # by the `num_novel_shots` and `num_base_shots`
+        self.num_novel_shots = num_novel_shots
+        self.num_base_shots = num_base_shots
+        self.min_bbox_area = min_bbox_area
+        self.CLASSES = self.get_classes(classes)
+        if ann_shot_filter is None:
+            if num_novel_shots is not None or num_base_shots is not None:
+                ann_shot_filter = self._create_ann_shot_filter()
+        else:
+            assert num_novel_shots is None and num_base_shots is None, \
+                f'{self.dataset_name}: can not config ann_shot_filter and ' \
+                f'num_novel_shots/num_base_shots at the same time.'
+
+        # these values would be set in `self.load_annotations_coco`
+        self.cat_ids = []
+        self.cat2label = {}
+        self.coco = None
+        self.img_ids = None
+
+        super().__init__(
+            classes=None,
+            ann_shot_filter=ann_shot_filter,
+            dataset_name=dataset_name,
+            test_mode=test_mode,
+            **kwargs)
+
+    def get_classes(self, classes: Union[str, Sequence[str]]) -> List[str]:
+        """Get class names.
+
+        It supports to load pre-defined classes splits.
+        The pre-defined classes splits are:
+        ['ALL_CLASSES', 'NOVEL_CLASSES', 'BASE_CLASSES']
+
+        Args:
+            classes (str | Sequence[str]): Classes for model training and
+                provide fixed label for each class. When classes is string,
+                it will load pre-defined classes in `FewShotCocoDataset`.
+                For example: 'NOVEL_CLASSES'.
+
+        Returns:
+            list[str]: list of class names.
+        """
+        # configure few shot classes setting
+        if isinstance(classes, str):
+            assert classes in self.SPLIT.keys(
+            ), f'{self.dataset_name} : not a pre-defined classes or split ' \
+               f'in COCO_SPLIT.'
+            class_names = self.SPLIT[classes]
+            if 'BASE_CLASSES' in classes:
+                assert self.num_novel_shots is None, \
+                    f'{self.dataset_name}: BASE_CLASSES do not have ' \
+                    f'novel instances.'
+            elif 'NOVEL_CLASSES' in classes:
+                assert self.num_base_shots is None, \
+                    f'{self.dataset_name}: NOVEL_CLASSES do not have ' \
+                    f'base instances.'
+        elif isinstance(classes, (tuple, list)):
+            class_names = classes
+        else:
+            raise ValueError(f'Unsupported type {type(classes)} of classes.')
+        return class_names
+
+    def _create_ann_shot_filter(self) -> Dict:
+        """Generate `ann_shot_filter` for novel and base classes.
+
+        Returns:
+            dict[str, int]: The number of shots to keep for each class.
+        """
+        ann_shot_filter = {}
+        # generate annotation filter for novel classes
+        if self.num_novel_shots is not None:
+            for class_name in self.SPLIT['NOVEL_CLASSES']:
+                ann_shot_filter[class_name] = self.num_novel_shots
+        # generate annotation filter for base classes
+        if self.num_base_shots is not None:
+            for class_name in self.SPLIT['BASE_CLASSES']:
+                ann_shot_filter[class_name] = self.num_base_shots
+        return ann_shot_filter
+
+    def get_cat_ids(original,catNms=[], supNms=[], catIds=[]):
+        catNms = catNms if self._isArrayLike(catNms) else [catNms]
+        supNms = supNms if self._isArrayLike(supNms) else [supNms]
+        catIds = catIds if self._isArrayLike(catIds) else [catIds]
+        
+        if len(catNms) == len(supNms) == len(catIds) == 0:
+            cats = original
+        else:
+            cats = original
+            cats = cats if len(catNms) == 0 else {cat:cats.get(cat) for cat in catNms}
+            cats = cats if len(catIds) == 0 else [cat for cat in cats if cat['id']            in catIds]
+            ids = cats
+        return ids
+
+    def _isArrayLike(obj):
+        return hasattr(obj, '__iter__') and hasattr(obj, '__len__')
+
+    def load_annotations(self, ann_cfg: List[Dict]) -> List[Dict]:
+        """Support to Load annotation from two type of ann_cfg.
+
+            - type of 'ann_file': COCO-style annotation file.
+            - type of 'saved_dataset': Saved COCO dataset json.
+
+        Args:
+            ann_cfg (list[dict]): Config of annotations.
+
+        Returns:
+            list[dict]: Annotation infos.
+        """
+        data_infos = []
+        for ann_cfg_ in ann_cfg:
+            if ann_cfg_['type'] == 'saved_dataset':
+                data_infos += self.load_annotations_saved(ann_cfg_['ann_file'])
+            elif ann_cfg_['type'] == 'ann_file':
+                data_infos += self.load_annotations_coco(ann_cfg_['ann_file'])
+            else:
+                raise ValueError(f'not support annotation type '
+                                 f'{ann_cfg_["type"]} in ann_cfg.')
+        return data_infos
+
+    def load_annotations_coco(self, ann_file: str) -> List[Dict]:
+        """Load annotation from COCO style annotation file.
+
+        Args:
+            ann_file (str): Path of annotation file.
+
+        Returns:
+            list[dict]: Annotation info from COCO api.
+        """
+        # to keep the label order equal to the order in CLASSES
+        if len(self.cat_ids) == 0:
+            for i, class_name in enumerate(self.CLASSES):
+                cat_id = self.get_cat_ids(self.original,cat_names=[class_name])
+                key, value=list(cat_id.items())[0]
+                self.cat_ids.append(value)
+                self.cat2label[key] = i
+                
+        else:
+            # check categories id consistency between different files
+            for i, class_name in enumerate(self.CLASSES):
+                cat_id = self.get_cat_ids(self.original,cat_names=[class_name])
+                assert self.cat2label[cat_id] == i, \
+                    'please make sure all the json files use same ' \
+                    'categories id for same class'
+
+        data_infos = []
+        for ann_cfg_ in ann_file:
+            if ann_cfg_['type'] == 'saved_dataset':
+                data_infos += self.load_annotations_saved(ann_cfg_['ann_file'])
+            elif ann_cfg_['type'] == 'ann_file':
+                # load annotation from specific classes
+                ann_classes = ann_cfg_.get('ann_classes', None)
+                if ann_classes is not None:
+                    for c in ann_classes:
+                        assert c in self.CLASSES, \
+                            f'{self.dataset_name}: ann_classes must in ' \
+                            f'dataset classes.'
+                else:
+                    ann_classes = self.CLASSES
+                data_infos += self.load_annotations_xml(
+                    ann_cfg_['ann_file'], ann_classes)
+            else:
+                raise ValueError(
+                    f'{self.dataset_name}: not support '
+                    f'annotation type {ann_cfg_["type"]} in ann_cfg.')
+
+        return data_infos
+
+    def load_annotations_xml(
+            self,
+            ann_file: str,
+            classes: Optional[List[str]] = None) -> List[Dict]:
+        """Load annotation from XML style ann_file.
+
+        It supports using image id or image path as image names
+        to load the annotation file.
+
+        Args:
+            ann_file (str): Path of annotation file.
+            classes (list[str] | None): Specific classes to load form xml file.
+                If set to None, it will use classes of whole dataset.
+                Default: None.
+
+        Returns:
+            list[dict]: Annotation info from XML file.
+        """
+        data_infos = []
+        img_names = mmcv.list_from_file(ann_file)
+        for img_name in img_names:
+            # ann file in image path format
+            if 'COCO' in ann_file:
+                data_infos+=self.load_annotations_support(img_name,ann_file)
+                continue
+            else:
+                raise ValueError('Cannot infer dataset year from img_prefix')
+
+        return data_infos
+
+
+    def load_annotations_support(
+            self,
+            img_name:str,
+            ann_file:str) ->List[Dict]:
+
+        support_data=[]
+        all_paths = ann_file.split("/")
+        data_clase=all_paths[-2]
+        filename=f'{data_clase}/{img_name}.jpg'
+
+        bboxes = np.array([[0,0,640,480]])
+        labels = np.array([self.cat2label[data_clase]])
+        bboxes_ignore=np.array([])
+        labels_ignore=np.array([])
+
+        ann_info = dict(
+            bboxes=bboxes.astype(np.float32),
+            labels=labels.astype(np.int64),
+            bboxes_ignore=bboxes_ignore.astype(np.float32),
+            labels_ignore=labels_ignore.astype(np.int64))
+
+        support_data.append(dict(
+                    id=img_name,
+                    filename=filename,
+                    width=640,
+                    height=480,
+                    ann=ann_info))
+        return support_data
+
+
+    
+
+    
+
+    def _get_ann_info(self, data_info: Dict) -> Dict:
+        """Get COCO annotation by index.
+
+        Args:
+            data_info(dict): Data info.
+
+        Returns:
+            dict: Annotation info of specified index.
+        """
+
+        img_id = data_info['id']
+        ann_ids = self.coco.get_ann_ids(img_ids=[img_id])
+        ann_info = self.coco.load_anns(ann_ids)
+        return self._parse_ann_info(data_info, ann_info)
+
+    def get_cat_ids(self, idx: int) -> List[int]:
+        """Get category ids by index.
+
+        Overwrite the function in CocoDataset.
+
+        Args:
+            idx (int): Index of data.
+
+        Returns:
+            list[int]: All categories in the image of specified index.
+        """
+
+        return self.data_infos[idx]['ann']['labels'].astype(np.int64).tolist()
+
+    def _filter_imgs(self,
+                     min_size: int = 32,
+                     min_bbox_area: Optional[int] = None) -> List[int]:
+        """Filter images that do not meet the requirements.
+
+        Args:
+            min_size (int): Filter images with length or width
+                smaller than `min_size`. Default: 32.
+            min_bbox_area (int | None): Filter images with bbox whose
+                area smaller `min_bbox_area`. If set to None, skip
+                this filter. Default: None.
+
+        Returns:
+            list[int]: valid indices of data_infos.
+        """
+        valid_inds = []
+        valid_img_ids = []
+        if min_bbox_area is None:
+            min_bbox_area = self.min_bbox_area
+        for i, img_info in enumerate(self.data_infos):
+            # filter empty image
+            if self.filter_empty_gt and img_info['ann']['labels'].size == 0:
+                continue
+            # filter images smaller than `min_size`
+            if min(img_info['width'], img_info['height']) < min_size:
+                continue
+            # filter image with bbox smaller than min_bbox_area
+            # it is usually used in Attention RPN
+            if min_bbox_area is not None:
+                skip_flag = False
+                for bbox in img_info['ann']['bboxes']:
+                    bbox_area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+                    if bbox_area < min_bbox_area:
+                        skip_flag = True
+                if skip_flag:
+                    continue
+            valid_inds.append(i)
+            valid_img_ids.append(img_info['id'])
+        # update coco img_ids
+        self.img_ids = valid_img_ids
+        return valid_inds
+
+    def evaluate(self,
+                 results: List[Sequence],
+                 metric: Union[str, List[str]] = 'bbox',
+                 logger: Optional[object] = None,
+                 jsonfile_prefix: Optional[str] = None,
+                 classwise: bool = False,
+                 proposal_nums: Sequence[int] = (100, 300, 1000),
+                 iou_thrs: Optional[Union[float, Sequence[float]]] = None,
+                 metric_items: Optional[Union[List[str], str]] = None,
+                 class_splits: Optional[List[str]] = None) -> Dict:
+        """Evaluation in COCO protocol and summary results of different splits
+        of classes.
+
+        Args:
+            results (list[list | tuple]): Testing results of the dataset.
+            metric (str | list[str]): Metrics to be evaluated. Options are
+                'bbox', 'proposal', 'proposal_fast'. Default: 'bbox'
+            logger (logging.Logger | None): Logger used for printing
+                related information during evaluation. Default: None.
+            jsonfile_prefix (str | None): The prefix of json files. It includes
+                the file path and the prefix of filename, e.g., "a/b/prefix".
+                If not specified, a temp file will be created. Default: None.
+            classwise (bool): Whether to evaluating the AP for each class.
+            proposal_nums (Sequence[int]): Proposal number used for evaluating
+                recalls, such as recall@100, recall@1000.
+                Default: (100, 300, 1000).
+            iou_thrs (Sequence[float] | float | None): IoU threshold used for
+                evaluating recalls/mAPs. If set to a list, the average of all
+                IoUs will also be computed. If not specified, [0.50, 0.55,
+                0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95] will be used.
+                Default: None.
+            metric_items (list[str] | str | None): Metric items that will
+                be returned. If not specified, ``['AR@100', 'AR@300',
+                'AR@1000', 'AR_s@1000', 'AR_m@1000', 'AR_l@1000' ]`` will be
+                used when ``metric=='proposal'``, ``['mAP', 'mAP_50', 'mAP_75',
+                'mAP_s', 'mAP_m', 'mAP_l']`` will be used when
+                ``metric=='bbox'``.
+            class_splits: (list[str] | None): Calculate metric of classes split
+                in COCO_SPLIT. For example: ['BASE_CLASSES', 'NOVEL_CLASSES'].
+                Default: None.
+
+        Returns:
+            dict[str, float]: COCO style evaluation metric.
+        """
+        if class_splits is not None:
+            for k in class_splits:
+                assert k in self.SPLIT.keys(), 'please define classes split.'
+        metrics = metric if isinstance(metric, list) else [metric]
+        allowed_metrics = ['bbox', 'proposal', 'proposal_fast']
+        for metric in metrics:
+            if metric not in allowed_metrics:
+                raise KeyError(f'metric {metric} is not supported')
+        if iou_thrs is None:
+            iou_thrs = np.linspace(
+                .5, 0.95, int(np.round((0.95 - .5) / .05)) + 1, endpoint=True)
+        if metric_items is not None:
+            if not isinstance(metric_items, list):
+                metric_items = [metric_items]
+
+        result_files, tmp_dir = self.format_results(results, jsonfile_prefix)
+
+        eval_results = OrderedDict()
+        cocoGt = self.coco
+        for metric in metrics:
+            msg = f'Evaluating {metric}...'
+            if logger is None:
+                msg = '\n' + msg
+            print_log(msg, logger=logger)
+
+            iou_type = 'bbox' if metric == 'proposal' else metric
+            if metric not in result_files:
+                raise KeyError(f'{metric} is not in results')
+            try:
+                predictions = mmcv.load(result_files[metric])
+                cocoDt = cocoGt.loadRes(predictions)
+            except IndexError:
+                print_log(
+                    'The testing results of the whole dataset is empty.',
+                    logger=logger,
+                    level=logging.ERROR)
+                break
+
+            # eval each class splits
+            if class_splits is not None:
+                class_splits = {k: COCO_SPLIT[k] for k in class_splits}
+                for split_name in class_splits.keys():
+                    split_cat_ids = [
+                        self.cat_ids[i] for i in range(len(self.CLASSES))
+                        if self.CLASSES[i] in class_splits[split_name]
+                    ]
+                    self._evaluate_by_class_split(
+                        cocoGt,
+                        cocoDt,
+                        iou_type,
+                        proposal_nums,
+                        iou_thrs,
+                        split_cat_ids,
+                        metric,
+                        metric_items,
+                        eval_results,
+                        False,
+                        logger,
+                        split_name=split_name + ' ')
+            # eval all classes
+            self._evaluate_by_class_split(cocoGt, cocoDt, iou_type,
+                                          proposal_nums, iou_thrs,
+                                          self.cat_ids, metric, metric_items,
+                                          eval_results, classwise, logger)
+
+        if tmp_dir is not None:
+            tmp_dir.cleanup()
+        return eval_results
+
+    def _evaluate_by_class_split(self,
+                                 cocoGt: object,
+                                 cocoDt: object,
+                                 iou_type: str,
+                                 proposal_nums: Sequence[int],
+                                 iou_thrs: Union[float, Sequence[float]],
+                                 cat_ids: List[int],
+                                 metric: str,
+                                 metric_items: Union[str, List[str]],
+                                 eval_results: Dict,
+                                 classwise: bool,
+                                 logger: object,
+                                 split_name: str = '') -> Dict:
+        """Evaluation a split of classes in COCO protocol.
+
+        Args:
+            cocoGt (object): coco object with ground truth annotations.
+            cocoDt (object): coco object with detection results.
+            iou_type (str): Type of IOU.
+            proposal_nums (Sequence[int]): Number of proposals.
+            iou_thrs (float | Sequence[float]): Thresholds of IoU.
+            cat_ids (list[int]): Class ids of classes to be evaluated.
+            metric (str): Metrics to be evaluated.
+            metric_items (str | list[str]): Metric items that will
+                be returned. If not specified, ``['AR@100', 'AR@300',
+                'AR@1000', 'AR_s@1000', 'AR_m@1000', 'AR_l@1000' ]`` will be
+                used when ``metric=='proposal'``, ``['mAP', 'mAP_50', 'mAP_75',
+                'mAP_s', 'mAP_m', 'mAP_l']`` will be used when
+                ``metric=='bbox'``.
+            eval_results (dict[str, float]): COCO style evaluation metric.
+            classwise (bool): Whether to evaluating the AP for each class.
+            split_name (str): Name of split. Default:''.
+
+        Returns:
+            dict[str, float]: COCO style evaluation metric.
+        """
+        cocoEval = COCOeval(cocoGt, cocoDt, iou_type)
+        cocoEval.params.imgIds = self.img_ids
+        cocoEval.params.maxDets = list(proposal_nums)
+        cocoEval.params.iouThrs = iou_thrs
+
+        cocoEval.params.catIds = cat_ids
+        # mapping of cocoEval.stats
+        coco_metric_names = {
+            'mAP': 0,
+            'mAP_50': 1,
+            'mAP_75': 2,
+            'mAP_s': 3,
+            'mAP_m': 4,
+            'mAP_l': 5,
+            'AR@100': 6,
+            'AR@300': 7,
+            'AR@1000': 8,
+            'AR_s@1000': 9,
+            'AR_m@1000': 10,
+            'AR_l@1000': 11
+        }
+        if metric_items is not None:
+            for metric_item in metric_items:
+                if metric_item not in coco_metric_names:
+                    raise KeyError(
+                        f'metric item {metric_item} is not supported')
+        if split_name is not None:
+            print_log(f'\n evaluation of {split_name} class', logger=logger)
+        if metric == 'proposal':
+            cocoEval.params.useCats = 0
+            cocoEval.evaluate()
+            cocoEval.accumulate()
+            cocoEval.summarize()
+            if metric_items is None:
+                metric_items = [
+                    'AR@100', 'AR@300', 'AR@1000', 'AR_s@1000', 'AR_m@1000',
+                    'AR_l@1000'
+                ]
+
+            for item in metric_items:
+                val = float(f'{cocoEval.stats[coco_metric_names[item]]:.3f}')
+                eval_results[split_name + item] = val
+        else:
+            cocoEval.evaluate()
+            cocoEval.accumulate()
+            cocoEval.summarize()
+            if classwise:  # Compute per-category AP
+                # Compute per-category AP
+                # from https://github.com/facebookresearch/detectron2/
+                precisions = cocoEval.eval['precision']
+                # precision: (iou, recall, cls, area range, max dets)
+                assert len(self.cat_ids) == precisions.shape[2], \
+                    f'{self.cat_ids},{precisions.shape}'
+
+                results_per_category = []
+                for idx, catId in enumerate(self.cat_ids):
+                    # area range index 0: all area ranges
+                    # max dets index -1: typically 100 per image
+                    nm = self.coco.loadCats(catId)[0]
+                    precision = precisions[:, :, idx, 0, -1]
+                    precision = precision[precision > -1]
+                    if precision.size:
+                        ap = np.mean(precision)
+                    else:
+                        ap = float('nan')
+                    results_per_category.append(
+                        (f'{nm["name"]}', f'{float(ap):0.3f}'))
+
+                num_columns = min(6, len(results_per_category) * 2)
+                results_flatten = list(itertools.chain(*results_per_category))
+                headers = [split_name + 'category', split_name + 'AP'] * (
+                    num_columns // 2)
+                results_2d = itertools.zip_longest(*[
+                    results_flatten[i::num_columns] for i in range(num_columns)
+                ])
+                table_data = [headers]
+                table_data += [result for result in results_2d]
+                table = AsciiTable(table_data)
+                print_log('\n' + table.table, logger=logger)
+
+            if metric_items is None:
+                metric_items = [
+                    'mAP', 'mAP_50', 'mAP_75', 'mAP_s', 'mAP_m', 'mAP_l'
+                ]
+
+            for metric_item in metric_items:
+                key = f'{metric}_{metric_item}'
+                val = float(
+                    f'{cocoEval.stats[coco_metric_names[metric_item]]:.3f}')
+                eval_results[split_name + key] = val
+            ap = cocoEval.stats[:6]
+            eval_results[split_name + f'{metric}_mAP_copypaste'] = (
+                f'{ap[0]:.3f} {ap[1]:.3f} {ap[2]:.3f} {ap[3]:.3f} '
+                f'{ap[4]:.3f} {ap[5]:.3f}')
+
+            return eval_results
+
+
+        
+        
+
+        
 @DATASETS.register_module()
 class FewShotCocoCopyDataset(FewShotCocoDataset):
     """Copy other COCO few shot datasets' `data_infos` directly.
