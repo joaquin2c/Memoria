@@ -1,11 +1,20 @@
-# coding=utf-8
 import argparse
 from os import listdir
 from os.path import isfile, join
 from sklearn.model_selection import train_test_split
 
 def files_to_txt(mypath,seed):
-  Clases_draw=('dining table', 'toilet', 'tv', 'laptop', 'mouse',
+  Clases_draw=('bicycle', 'car', 'motorcycle', 'airplane', 'bus',
+                 'train', 'truck', 'traffic light', 'fire hydrant',
+                 'stop sign', 'bench', 'bird', 'cat', 'dog',
+                 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra',
+                 'giraffe', 'backpack', 'umbrella',
+                 'suitcase','baseball bat', 'skateboard',
+                 'tennis racket', 'wine glass', 'cup',
+                 'fork', 'knife', 'spoon', 'banana', 'apple',
+                 'sandwich', 'broccoli', 'carrot', 'hot dog',
+                 'pizza', 'donut', 'cake', 'chair', 'couch', 'potted plant',
+                 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse',
                  'remote', 'keyboard', 'cell phone', 'microwave', 'oven',
                  'toaster', 'sink', 'book', 'clock', 'vase',
                  'scissors', 'teddy bear', 'toothbrush')

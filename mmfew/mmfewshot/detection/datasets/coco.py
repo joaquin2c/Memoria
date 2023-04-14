@@ -702,11 +702,10 @@ class DrawCocoDataset(BaseFewShotDataset):
                 ann_shot_filter[class_name] = self.num_base_shots
         return ann_shot_filter
 
-    def get_cat_ids(original,catNms=[], supNms=[], catIds=[]):
+    def getCatIdsCOCO(self,original,catNms=[], supNms=[], catIds=[]):
         catNms = catNms if self._isArrayLike(catNms) else [catNms]
         supNms = supNms if self._isArrayLike(supNms) else [supNms]
-        catIds = catIds if self._isArrayLike(catIds) else [catIds]
-        
+        catIds = catIds if self._isArrayLike(catIds) else [catIds] 
         if len(catNms) == len(supNms) == len(catIds) == 0:
             cats = original
         else:
@@ -716,10 +715,10 @@ class DrawCocoDataset(BaseFewShotDataset):
             ids = cats
         return ids
 
-    def _isArrayLike(obj):
+    def _isArrayLike(self,obj):
         return hasattr(obj, '__iter__') and hasattr(obj, '__len__')
 
-    def load_annotations(self, ann_cfg: List[Dict]) -> List[Dict]:
+    def load_annotations(self, ann_file: List[Dict]) -> List[Dict]:
         """Support to Load annotation from two type of ann_cfg.
 
             - type of 'ann_file': COCO-style annotation file.
@@ -731,34 +730,12 @@ class DrawCocoDataset(BaseFewShotDataset):
         Returns:
             list[dict]: Annotation infos.
         """
-        data_infos = []
-        for ann_cfg_ in ann_cfg:
-            if ann_cfg_['type'] == 'saved_dataset':
-                data_infos += self.load_annotations_saved(ann_cfg_['ann_file'])
-            elif ann_cfg_['type'] == 'ann_file':
-                data_infos += self.load_annotations_coco(ann_cfg_['ann_file'])
-            else:
-                raise ValueError(f'not support annotation type '
-                                 f'{ann_cfg_["type"]} in ann_cfg.')
-        return data_infos
-
-    def load_annotations_coco(self, ann_file: str) -> List[Dict]:
-        """Load annotation from COCO style annotation file.
-
-        Args:
-            ann_file (str): Path of annotation file.
-
-        Returns:
-            list[dict]: Annotation info from COCO api.
-        """
-        # to keep the label order equal to the order in CLASSES
         if len(self.cat_ids) == 0:
             for i, class_name in enumerate(self.CLASSES):
-                cat_id = self.get_cat_ids(self.original,cat_names=[class_name])
+                cat_id = self.getCatIdsCOCO(self.original,catNms=[class_name])
                 key, value=list(cat_id.items())[0]
                 self.cat_ids.append(value)
                 self.cat2label[key] = i
-                
         else:
             # check categories id consistency between different files
             for i, class_name in enumerate(self.CLASSES):
@@ -768,12 +745,11 @@ class DrawCocoDataset(BaseFewShotDataset):
                     'categories id for same class'
 
         data_infos = []
-        for ann_cfg_ in ann_file:
-            if ann_cfg_['type'] == 'saved_dataset':
-                data_infos += self.load_annotations_saved(ann_cfg_['ann_file'])
-            elif ann_cfg_['type'] == 'ann_file':
-                # load annotation from specific classes
-                ann_classes = ann_cfg_.get('ann_classes', None)
+        for ann_cfg in ann_file:
+            if ann_cfg['type'] == 'saved_dataset':
+                data_infos += self.load_annotations_saved(ann_cfg['ann_file'])
+            elif ann_cfg['type'] == 'ann_file':
+                ann_classes = ann_cfg.get('ann_classes', None)
                 if ann_classes is not None:
                     for c in ann_classes:
                         assert c in self.CLASSES, \
@@ -782,12 +758,10 @@ class DrawCocoDataset(BaseFewShotDataset):
                 else:
                     ann_classes = self.CLASSES
                 data_infos += self.load_annotations_xml(
-                    ann_cfg_['ann_file'], ann_classes)
+                    ann_cfg['ann_file'], ann_classes)
             else:
-                raise ValueError(
-                    f'{self.dataset_name}: not support '
-                    f'annotation type {ann_cfg_["type"]} in ann_cfg.')
-
+                raise ValueError(f'not support annotation type '
+                                 f'{ann_cfg_["type"]} in ann_cfg.')
         return data_infos
 
     def load_annotations_xml(
@@ -809,28 +783,31 @@ class DrawCocoDataset(BaseFewShotDataset):
             list[dict]: Annotation info from XML file.
         """
         data_infos = []
-        img_names = mmcv.list_from_file(ann_file)
-        for img_name in img_names:
-            # ann file in image path format
-            if 'COCO' in ann_file:
-                data_infos+=self.load_annotations_support(img_name,ann_file)
-                continue
-            else:
-                raise ValueError('Cannot infer dataset year from img_prefix')
+        classes = mmcv.list_from_file(ann_file)
+        for clase in classes:
+            path_class=osp.join(self.img_prefix,clase)
+            img_names=mmcv.list_from_file(path_class)
+            for img_name in img_names:
+                # ann file in image path format
+                if 'COCO' in ann_file:
+                    data_infos+=self.load_annotations_support(clase,img_name,ann_file)
+                    continue
+                else:
+                    raise ValueError('Cannot infer dataset year from img_prefix')
 
         return data_infos
 
 
     def load_annotations_support(
             self,
+            clase:str,
             img_name:str,
             ann_file:str) ->List[Dict]:
 
         support_data=[]
-        all_paths = ann_file.split("/")
+        all_paths = clase.split("/")
         data_clase=all_paths[-2]
         filename=f'{data_clase}/{img_name}.jpg'
-
         bboxes = np.array([[0,0,640,480]])
         labels = np.array([self.cat2label[data_clase]])
         bboxes_ignore=np.array([])

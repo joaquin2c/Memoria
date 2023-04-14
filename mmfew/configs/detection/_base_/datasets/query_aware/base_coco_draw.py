@@ -39,7 +39,7 @@ test_pipeline = [
         ])
 ]
 # classes splits are predefined in FewShotVOCDataset
-data_root = '../../../Data/COCODraw/data'
+data_root = '../../../Data/COCODraw/data2'
 data_root_query= '../../../Data/COCO'
 data = dict(
     samples_per_gpu=2,
@@ -63,7 +63,7 @@ data = dict(
             min_bbox_area=32 * 32,
             dataset_name='query_dataset'),
         support_dataset=dict(
-            type='DrawCOCODataset',
+            type='DrawCocoDataset',
             ann_cfg=[
                 dict(
                      type='ann_file',
@@ -104,7 +104,7 @@ data = dict(
         copy_from_train_dataset=False,
         samples_per_gpu=16,
         workers_per_gpu=1,
-        type='DrawCOCODataset',
+        type='DrawCocoDataset',
         ann_cfg=[
                 dict(
                      type='ann_file',
