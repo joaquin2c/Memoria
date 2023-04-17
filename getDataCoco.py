@@ -1,11 +1,11 @@
 # coding=utf-8
-from mmfewshot.detection.datasets import DrawCocoDataset
+from mmfewshot.detection.datasets import DrawCocoDataset, FewShotCocoDataset,QueryAwareDataset
 import pickle
 import argparse
 
 
 data_root = '../../Data/COCODraw/data'
-
+data_root_query= '../../Data/COCO'
 img_norm_cfg = dict(
     mean=[103.530, 116.280, 123.675], std=[1.0, 1.0, 1.0], to_rgb=False)
 
@@ -33,19 +33,31 @@ train_multi_pipelines = dict(
         dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels'])
     ])
 
-ann_cfg2=[
-	dict(type='ann_file',ann_file=data_root+'/Base_test.txt')
+ann_cfg_draw=[
+	dict(type='ann_file',ann_file=data_root+'/Base_train.txt')
     ]
 
+ann_cfg_coco=[
+        dict(
+        type='ann_file',
+         ann_file=data_root_query+'/annotations/instances_val2017.json'),
+    ]
 
 def getDataCoco(output):
-  COCOval=DrawCocoDataset(
-		img_prefix=data_root,multi_pipelines=train_multi_pipelines,
-		ann_cfg=ann_cfg2,classes='BASE_CLASSES')
-  f = open(f"{output}/valoresDraw.pckl", 'wb')
-  pickle.dump(COCOval, f)
+  #COCODraw=DrawCocoDataset(
+  #              img_prefix=data_root,multi_pipelines=train_multi_pipelines,
+  #              ann_cfg=ann_cfg_draw,classes='BASE_CLASSES')
+  COCO=FewShotCocoDataset(
+		img_prefix=data_root_query,multi_pipelines=train_multi_pipelines,
+		ann_cfg=ann_cfg_coco,classes='BASE_CLASSES')
+  '''
+  query=QueryAwareDataset(num_support_ways=2,num_support_shots=1,query_dataset=COCO,support_dataset=COCODraw)
+  f = open(f"{output}/QueryValoresDraw2.pckl", 'wb')
+  pickle.dump(query, f)
+  testt=query.__getitem__(72)
+  print(f"elemento:{testt}")
   f.close()
-
+  '''
 
 
 if __name__=="__main__":

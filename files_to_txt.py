@@ -4,6 +4,7 @@ from os.path import isfile, join
 from sklearn.model_selection import train_test_split
 
 def files_to_txt(mypath,seed):
+  '''
   Clases_draw=('bicycle', 'car', 'motorcycle', 'airplane', 'bus',
                  'train', 'truck', 'traffic light', 'fire hydrant',
                  'stop sign', 'bench', 'bird', 'cat', 'dog',
@@ -18,6 +19,12 @@ def files_to_txt(mypath,seed):
                  'remote', 'keyboard', 'cell phone', 'microwave', 'oven',
                  'toaster', 'sink', 'book', 'clock', 'vase',
                  'scissors', 'teddy bear', 'toothbrush')
+  '''
+  Clases_draw=  ('dining table', 'toilet', 'tv', 'laptop', 'mouse',
+                 'remote', 'keyboard', 'cell phone', 'microwave', 'oven',
+                 'toaster', 'sink', 'book', 'clock', 'vase',
+                 'scissors', 'teddy bear', 'toothbrush')
+
   for i in Clases_draw:
     final_path=mypath+"/"+i
     fileslist = [f[:-4] for f in listdir(final_path)]
