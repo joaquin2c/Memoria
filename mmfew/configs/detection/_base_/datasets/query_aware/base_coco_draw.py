@@ -72,7 +72,7 @@ data = dict(
             img_prefix=data_root,
             multi_pipelines=train_multi_pipelines,
             classes='BASE_CLASSES',
-            instance_wise=False,
+            instance_wise=True,
             min_bbox_area=32 * 32,
             dataset_name='support_dataset')),
 
@@ -117,5 +117,5 @@ data = dict(
         classes='BASE_CLASSES',
         min_bbox_area=32 * 32,
         dataset_name='model_init'))
-#evaluation = dict(interval=20000, metric='mAP')
-evaluation = dict(interval=20000, metric='bbox',classwise=True)
+evaluation = dict(interval=20000, metric='mAP')
+#evaluation = dict(interval=20000, metric='bbox',classwise=True)

@@ -10,6 +10,8 @@ import numpy as np
 from mmcv.utils import print_log
 from mmdet.datasets.api_wrappers import COCO, COCOeval
 from mmdet.datasets.builder import DATASETS
+
+from mmfewshot.detection.core import eval_map
 from mmdet.datasets.coco import CocoDataset
 from terminaltables import AsciiTable
 
@@ -611,6 +613,7 @@ class DrawCocoDataset(BaseFewShotDataset):
                  min_bbox_area: Optional[Union[int, float]] = None,
                  dataset_name: Optional[str] = None,
                  test_mode: bool = False,
+                 coordinate_offset: List[int] = [-1, -1, 0, 0],
                  **kwargs) -> None:
         if dataset_name is None:
             self.dataset_name = 'Test dataset' \
@@ -903,253 +906,111 @@ class DrawCocoDataset(BaseFewShotDataset):
         # update coco img_ids
         self.img_ids = valid_img_ids
         return valid_inds
-
+    
     def evaluate(self,
                  results: List[Sequence],
-                 metric: Union[str, List[str]] = 'bbox',
+                 metric: Union[str, List[str]] = 'mAP',
                  logger: Optional[object] = None,
-                 jsonfile_prefix: Optional[str] = None,
-                 classwise: bool = False,
                  proposal_nums: Sequence[int] = (100, 300, 1000),
-                 iou_thrs: Optional[Union[float, Sequence[float]]] = None,
-                 metric_items: Optional[Union[List[str], str]] = None,
+                 iou_thr: Optional[Union[float, Sequence[float]]] = 0.5,
                  class_splits: Optional[List[str]] = None) -> Dict:
-        """Evaluation in COCO protocol and summary results of different splits
+        """Evaluation in VOC protocol and summary results of different splits
         of classes.
 
         Args:
-            results (list[list | tuple]): Testing results of the dataset.
+            results (list[list | tuple]): Predictions of the model.
             metric (str | list[str]): Metrics to be evaluated. Options are
-                'bbox', 'proposal', 'proposal_fast'. Default: 'bbox'
+                'mAP', 'recall'. Default: mAP.
             logger (logging.Logger | None): Logger used for printing
                 related information during evaluation. Default: None.
-            jsonfile_prefix (str | None): The prefix of json files. It includes
-                the file path and the prefix of filename, e.g., "a/b/prefix".
-                If not specified, a temp file will be created. Default: None.
-            classwise (bool): Whether to evaluating the AP for each class.
             proposal_nums (Sequence[int]): Proposal number used for evaluating
                 recalls, such as recall@100, recall@1000.
                 Default: (100, 300, 1000).
-            iou_thrs (Sequence[float] | float | None): IoU threshold used for
-                evaluating recalls/mAPs. If set to a list, the average of all
-                IoUs will also be computed. If not specified, [0.50, 0.55,
-                0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90, 0.95] will be used.
-                Default: None.
-            metric_items (list[str] | str | None): Metric items that will
-                be returned. If not specified, ``['AR@100', 'AR@300',
-                'AR@1000', 'AR_s@1000', 'AR_m@1000', 'AR_l@1000' ]`` will be
-                used when ``metric=='proposal'``, ``['mAP', 'mAP_50', 'mAP_75',
-                'mAP_s', 'mAP_m', 'mAP_l']`` will be used when
-                ``metric=='bbox'``.
-            class_splits: (list[str] | None): Calculate metric of classes split
-                in COCO_SPLIT. For example: ['BASE_CLASSES', 'NOVEL_CLASSES'].
+            iou_thr (float | list[float]): IoU threshold. Default: 0.5.
+            class_splits: (list[str] | None): Calculate metric of classes
+                split  defined in VOC_SPLIT. For example:
+                ['BASE_CLASSES_SPLIT1', 'NOVEL_CLASSES_SPLIT1'].
                 Default: None.
 
         Returns:
-            dict[str, float]: COCO style evaluation metric.
+            dict[str, float]: AP/recall metrics.
         """
+        # It should be noted that in the original mmdet implementation,
+        # the four coordinates are reduced by 1 when the annotation
+        # is parsed. Here we following detectron2, only xmin and ymin
+        # will be reduced by 1 during training. The groundtruth used for
+        # evaluation or testing keep consistent with original xml
+        # annotation file and the xmin and ymin of prediction results
+        # will add 1 for inverse of data loading logic.
+        for i in range(len(results)):
+            for j in range(len(results[i])):
+                for k in range(4):
+                    results[i][j][:, k] -= self.coordinate_offset[k]
+
+        if not isinstance(metric, str):
+            assert len(metric) == 1
+            metric = metric[0]
+        allowed_metrics = ['mAP', 'recall']
+        if metric not in allowed_metrics:
+            raise KeyError(f'metric {metric} is not supported')
         if class_splits is not None:
             for k in class_splits:
-                assert k in self.SPLIT.keys(), 'please define classes split.'
-        metrics = metric if isinstance(metric, list) else [metric]
-        allowed_metrics = ['bbox', 'proposal', 'proposal_fast']
-        for metric in metrics:
-            if metric not in allowed_metrics:
-                raise KeyError(f'metric {metric} is not supported')
-        if iou_thrs is None:
-            iou_thrs = np.linspace(
-                .5, 0.95, int(np.round((0.95 - .5) / .05)) + 1, endpoint=True)
-        if metric_items is not None:
-            if not isinstance(metric_items, list):
-                metric_items = [metric_items]
+                assert k in self.SPLIT.keys(), 'undefiend classes split.'
+            class_splits = {k: self.SPLIT[k] for k in class_splits}
+            class_splits_mean_aps = {k: [] for k in class_splits.keys()}
 
-        result_files, tmp_dir = self.format_results(results, jsonfile_prefix)
-
+        annotations = [self.get_ann_info(i) for i in range(len(self))]
         eval_results = OrderedDict()
-        cocoGt = self.coco
-        for metric in metrics:
-            msg = f'Evaluating {metric}...'
-            if logger is None:
-                msg = '\n' + msg
-            print_log(msg, logger=logger)
-
-            iou_type = 'bbox' if metric == 'proposal' else metric
-            if metric not in result_files:
-                raise KeyError(f'{metric} is not in results')
-            try:
-                predictions = mmcv.load(result_files[metric])
-                cocoDt = cocoGt.loadRes(predictions)
-            except IndexError:
-                print_log(
-                    'The testing results of the whole dataset is empty.',
+        iou_thrs = [iou_thr] if isinstance(iou_thr, float) else iou_thr
+        if metric == 'mAP':
+            assert isinstance(iou_thrs, list)
+            mean_aps = []
+            for iou_thr in iou_thrs:
+                print_log(f'\n{"-" * 15}iou_thr: {iou_thr}{"-" * 15}')
+                mean_ap, ap_results = eval_map(
+                    results,
+                    annotations,
+                    classes=self.CLASSES,
+                    scale_ranges=None,
+                    iou_thr=iou_thr,
+                    dataset='voc07',
                     logger=logger,
-                    level=logging.ERROR)
-                break
+                    use_legacy_coordinate=True)
+                mean_aps.append(mean_ap)
+                eval_results[f'AP{int(iou_thr * 100):02d}'] = round(mean_ap, 3)
 
-            # eval each class splits
+                # calculate evaluate results of different class splits
+                if class_splits is not None:
+                    for k in class_splits.keys():
+                        aps = [
+                            cls_results['ap']
+                            for i, cls_results in enumerate(ap_results)
+                            if self.CLASSES[i] in class_splits[k]
+                        ]
+                        class_splits_mean_ap = np.array(aps).mean().item()
+                        class_splits_mean_aps[k].append(class_splits_mean_ap)
+                        eval_results[
+                            f'{k}: AP{int(iou_thr * 100):02d}'] = round(
+                                class_splits_mean_ap, 3)
+
+            eval_results['mAP'] = sum(mean_aps) / len(mean_aps)
             if class_splits is not None:
-                class_splits = {k: COCO_SPLIT[k] for k in class_splits}
-                for split_name in class_splits.keys():
-                    split_cat_ids = [
-                        self.cat_ids[i] for i in range(len(self.CLASSES))
-                        if self.CLASSES[i] in class_splits[split_name]
-                    ]
-                    self._evaluate_by_class_split(
-                        cocoGt,
-                        cocoDt,
-                        iou_type,
-                        proposal_nums,
-                        iou_thrs,
-                        split_cat_ids,
-                        metric,
-                        metric_items,
-                        eval_results,
-                        False,
-                        logger,
-                        split_name=split_name + ' ')
-            # eval all classes
-            self._evaluate_by_class_split(cocoGt, cocoDt, iou_type,
-                                          proposal_nums, iou_thrs,
-                                          self.cat_ids, metric, metric_items,
-                                          eval_results, classwise, logger)
-
-        if tmp_dir is not None:
-            tmp_dir.cleanup()
+                for k in class_splits.keys():
+                    mAP = sum(class_splits_mean_aps[k]) / len(
+                        class_splits_mean_aps[k])
+                    print_log(f'{k} mAP: {mAP}', logger=logger)
+        elif metric == 'recall':
+            gt_bboxes = [ann['bboxes'] for ann in annotations]
+            recalls = eval_recalls(
+                gt_bboxes, results, proposal_nums, iou_thr, logger=logger)
+            for i, num in enumerate(proposal_nums):
+                for j, iou in enumerate(iou_thr):
+                    eval_results[f'recall@{num}@{iou}'] = recalls[i, j]
+            if recalls.shape[1] > 1:
+                ar = recalls.mean(axis=1)
+                for i, num in enumerate(proposal_nums):
+                    eval_results[f'AR@{num}'] = ar[i]
         return eval_results
-
-    def _evaluate_by_class_split(self,
-                                 cocoGt: object,
-                                 cocoDt: object,
-                                 iou_type: str,
-                                 proposal_nums: Sequence[int],
-                                 iou_thrs: Union[float, Sequence[float]],
-                                 cat_ids: List[int],
-                                 metric: str,
-                                 metric_items: Union[str, List[str]],
-                                 eval_results: Dict,
-                                 classwise: bool,
-                                 logger: object,
-                                 split_name: str = '') -> Dict:
-        """Evaluation a split of classes in COCO protocol.
-
-        Args:
-            cocoGt (object): coco object with ground truth annotations.
-            cocoDt (object): coco object with detection results.
-            iou_type (str): Type of IOU.
-            proposal_nums (Sequence[int]): Number of proposals.
-            iou_thrs (float | Sequence[float]): Thresholds of IoU.
-            cat_ids (list[int]): Class ids of classes to be evaluated.
-            metric (str): Metrics to be evaluated.
-            metric_items (str | list[str]): Metric items that will
-                be returned. If not specified, ``['AR@100', 'AR@300',
-                'AR@1000', 'AR_s@1000', 'AR_m@1000', 'AR_l@1000' ]`` will be
-                used when ``metric=='proposal'``, ``['mAP', 'mAP_50', 'mAP_75',
-                'mAP_s', 'mAP_m', 'mAP_l']`` will be used when
-                ``metric=='bbox'``.
-            eval_results (dict[str, float]): COCO style evaluation metric.
-            classwise (bool): Whether to evaluating the AP for each class.
-            split_name (str): Name of split. Default:''.
-
-        Returns:
-            dict[str, float]: COCO style evaluation metric.
-        """
-        cocoEval = COCOeval(cocoGt, cocoDt, iou_type)
-        cocoEval.params.imgIds = self.img_ids
-        cocoEval.params.maxDets = list(proposal_nums)
-        cocoEval.params.iouThrs = iou_thrs
-
-        cocoEval.params.catIds = cat_ids
-        # mapping of cocoEval.stats
-        coco_metric_names = {
-            'mAP': 0,
-            'mAP_50': 1,
-            'mAP_75': 2,
-            'mAP_s': 3,
-            'mAP_m': 4,
-            'mAP_l': 5,
-            'AR@100': 6,
-            'AR@300': 7,
-            'AR@1000': 8,
-            'AR_s@1000': 9,
-            'AR_m@1000': 10,
-            'AR_l@1000': 11
-        }
-        if metric_items is not None:
-            for metric_item in metric_items:
-                if metric_item not in coco_metric_names:
-                    raise KeyError(
-                        f'metric item {metric_item} is not supported')
-        if split_name is not None:
-            print_log(f'\n evaluation of {split_name} class', logger=logger)
-        if metric == 'proposal':
-            cocoEval.params.useCats = 0
-            cocoEval.evaluate()
-            cocoEval.accumulate()
-            cocoEval.summarize()
-            if metric_items is None:
-                metric_items = [
-                    'AR@100', 'AR@300', 'AR@1000', 'AR_s@1000', 'AR_m@1000',
-                    'AR_l@1000'
-                ]
-
-            for item in metric_items:
-                val = float(f'{cocoEval.stats[coco_metric_names[item]]:.3f}')
-                eval_results[split_name + item] = val
-        else:
-            cocoEval.evaluate()
-            cocoEval.accumulate()
-            cocoEval.summarize()
-            if classwise:  # Compute per-category AP
-                # Compute per-category AP
-                # from https://github.com/facebookresearch/detectron2/
-                precisions = cocoEval.eval['precision']
-                # precision: (iou, recall, cls, area range, max dets)
-                assert len(self.cat_ids) == precisions.shape[2], \
-                    f'{self.cat_ids},{precisions.shape}'
-
-                results_per_category = []
-                for idx, catId in enumerate(self.cat_ids):
-                    # area range index 0: all area ranges
-                    # max dets index -1: typically 100 per image
-                    nm = self.coco.loadCats(catId)[0]
-                    precision = precisions[:, :, idx, 0, -1]
-                    precision = precision[precision > -1]
-                    if precision.size:
-                        ap = np.mean(precision)
-                    else:
-                        ap = float('nan')
-                    results_per_category.append(
-                        (f'{nm["name"]}', f'{float(ap):0.3f}'))
-
-                num_columns = min(6, len(results_per_category) * 2)
-                results_flatten = list(itertools.chain(*results_per_category))
-                headers = [split_name + 'category', split_name + 'AP'] * (
-                    num_columns // 2)
-                results_2d = itertools.zip_longest(*[
-                    results_flatten[i::num_columns] for i in range(num_columns)
-                ])
-                table_data = [headers]
-                table_data += [result for result in results_2d]
-                table = AsciiTable(table_data)
-                print_log('\n' + table.table, logger=logger)
-
-            if metric_items is None:
-                metric_items = [
-                    'mAP', 'mAP_50', 'mAP_75', 'mAP_s', 'mAP_m', 'mAP_l'
-                ]
-
-            for metric_item in metric_items:
-                key = f'{metric}_{metric_item}'
-                val = float(
-                    f'{cocoEval.stats[coco_metric_names[metric_item]]:.3f}')
-                eval_results[split_name + key] = val
-            ap = cocoEval.stats[:6]
-            eval_results[split_name + f'{metric}_mAP_copypaste'] = (
-                f'{ap[0]:.3f} {ap[1]:.3f} {ap[2]:.3f} {ap[3]:.3f} '
-                f'{ap[4]:.3f} {ap[5]:.3f}')
-
-            return eval_results
-
 
         
         
