@@ -740,7 +740,8 @@ class DrawCocoDataset(BaseFewShotDataset):
             # check categories id consistency between different files
             for i, class_name in enumerate(self.CLASSES):
                 cat_id = self.get_cat_ids(self.original,cat_names=[class_name])
-                assert self.cat2label[cat_id] == i, \
+                key=list(cat_id.keys())[0]
+                assert self.cat2label[key] == i, \
                     'please make sure all the json files use same ' \
                     'categories id for same class'
 
